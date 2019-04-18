@@ -8,20 +8,6 @@ export function shuffle(a: any[]) {
     return a;
 }
 
-const mdConverter = new showdown.Converter({
-    tables: true
-});
-
-mdConverter.setFlavor("github");
-
-export function md2html(s: string): string {
-    if (!s) {
-        return "";
-    }
-
-    return mdConverter.makeHtml(s);
-}
-
 export function toTitle(s: string) {
     return s[0].toLocaleUpperCase() + s.slice(1);
 }
@@ -38,10 +24,20 @@ export async function fetchJSON(url: string, data: any = {}, method?: string): P
     try {
         return await res.json();
     } catch (e) {
-        if (res.status < 300) {
+        if (res.status < 400) {
             return res.status;
+        } else if (res.status === 403) {
+            return location.reload();
         } else {
             throw new Error(res.statusText);
         }
     }
+}
+
+const md = new showdown.Converter({
+    tables: true
+});
+
+export function md2html(s?: string) {
+    return md.makeHtml(s || "");
 }

@@ -1,55 +1,70 @@
-import { fetchJSON } from "./util";
-import { initCardEditor } from "./cardEditor";
-import { initDeckViewer } from "./deckViewer";
+import Vue from "vue";
+import VueRouter from "vue-router";
+import Counter from "./DbEditor/component/Counter";
+import SearchBar from "./DbEditor/component/SearchBar";
+import "./index.scss";
+import Quiz from "./Quiz/Quiz";
+import BootstrapVue from "bootstrap-vue";
+import "bootstrap";
+import CardEditor from "./DbEditor/CardEditor";
+import ImportExport from "./ImportExport";
+import m from "hyperscript";
+import "./contextmenu";
 
-const el = {
-    searchBarArea: document.getElementById("SearchBarArea") as HTMLDivElement,
-    userNameArea: document.getElementById("UserNameArea") as HTMLDivElement,
-    loginButton: document.getElementById("LoginButton") as HTMLButtonElement,
-    editLink: document.getElementById("EditLink") as HTMLButtonElement,
-    quizLink: document.getElementById("QuizLink") as HTMLButtonElement,
-    app: document.getElementById("App") as HTMLDivElement
-};
+Vue.use(VueRouter);
+Vue.use(BootstrapVue);
 
-const displayName: string | undefined = (window as any).displayName;
+const router = new VueRouter({
+    routes: [
+        {name: "default", path: "/", component: Quiz},
+        {name: "quiz", path: "/quiz", component: Quiz},
+        {name: "cardEditor", path: "/editor", component: CardEditor},
+        {name: "importExport", path: "/importExport", component: ImportExport}
+    ]
+});
 
-if (displayName) {
-    allowLogout();
-} else {
-    allowLogin();
-}
-
-el.quizLink.onclick = () => initDeckViewer();
-el.editLink.onclick = () => initCardEditor();
-
-function allowLogin() {
-    el.userNameArea.innerText = displayName || "";
-    el.loginButton.classList.add("btn-outline-success");
-    el.loginButton.onclick = () => location.replace("/login");
-    el.loginButton.innerText = "Login for more";
-
-    el.editLink.disabled = true;
-    el.quizLink.disabled = true;
-
-    el.app.innerHTML = `
-    <div class="mt-3">
-        Please login to use the app.
-    </div>`;
-}
-
-function allowLogout() {
-    el.loginButton.classList.add("btn-outline-danger");
-    el.loginButton.onclick = () => location.replace("/logout");
-    el.loginButton.innerText = "Logout";
-
-    el.editLink.disabled = false;
-    el.quizLink.disabled = false;
-
-    fetchJSON("/editor/card/", {q: "", offset: 0, limit: 1}).then((r) => {
-        if (r && r.total) {
-            initDeckViewer();
-        } else {
-            initCardEditor();
-        }
-    });
-}
+const app = new Vue({
+    router,
+    components: {Counter, SearchBar},
+    template: m("div.h-100", [
+        m("nav.navbar.navbar-expand-lg.navbar-light.bg-light", [
+            m("a.navbar-brand", {href: "#"}, "Rep2Recall"),
+            m("button.navbar-toggler", {
+                "data-target": "#navbarSupportedContent",
+                "type": "button"
+            }, [
+                m("span.navbar-toggler-icon")
+            ]),
+            m("div.collapse.navbar-collapse#navbarSupportedContent", [
+                m("ul.navbar-nav.mr-auto", [
+                    m("li", {
+                        class: "['nav-item', $route.path === '/quiz' ? 'active' : '']"
+                    }, [
+                        m("router-link.nav-link", {attrs: {to: "/quiz"}}, "Quiz")
+                    ]),
+                    m("li", {
+                        class: "['nav-item', $route.path === '/editor' ? 'active' : '']"
+                    }, [
+                        m("router-link.nav-link", {attrs: {to: "/editor"}}, "Editor")
+                    ]),
+                    m("li", {
+                        class: "['nav-item', $route.path === '/importExport' ? 'active' : '']"
+                    }, [
+                        m("router-link.nav-link", {attrs: {to: "/importExport"}}, "Import")
+                    ]),
+                    m("li.nav-item", [
+                        m("a.nav-link", {
+                            href: "https://github.com/patarapolw/rep2recall",
+                            target: "_blank"
+                        }, "About")
+                    ]),
+                    m("counter")
+                ]),
+                m("ul.navbar-nav", [
+                    m("search-bar")
+                ])
+            ])
+        ]),
+        m("router-view")
+    ]).outerHTML
+}).$mount("#App");
