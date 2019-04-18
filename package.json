@@ -93,7 +93,7 @@
     "start": "yarn run serve",
     "dev": "concurrently 'yarn run serve:watch' 'yarn run front:watch'",
     "serve": "node -r esm .",
-    "serve:watch": "rimraf build && concurrently 'tsc -p src/backend -w' 'wait-on build/server.js && nodemon -r esm -w build'",
+    "serve:watch": "rimraf build && nodemon -e ts -w src/backend -x 'yarn run tsc && yarn run serve'",
     "front:watch": "rimraf dist && webpack --watch --config webpack.dev.js",
     "build": "yarn run tsc && rimraf dist && webpack --config webpack.prod.js",
     "tsc": "tsc -p src/backend"

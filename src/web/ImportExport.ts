@@ -33,19 +33,22 @@ import ndjsonStream from "can-ndjson-stream";
             attrs: {
                 "ref": "uploadModal",
                 "hide-footer": true,
-                "title": "Uploading"
+                "hide-header-close": true,
+                "title": "Uploading",
+                "v-on:hide": "preventHide"
             }
         }, [
                 m("div", "{{progress.text}}"),
-                m("template", [
-                    m("b-progress", {
-                        attrs: {
-                            ":value": "{{progress.value}}",
-                            ":max": "{{progress.max}}",
-                            "show-progress": true,
-                            "animated": true
-                        }
-                    })
+                m(".progress.mt-3", {attrs: {
+                    ":style": "{display: progress.max ? 'block': 'none'}"
+                }}, [
+                    m(".progress-bar.progress-bar-striped.progress-bar-animated", {attrs: {
+                        "role": "progressbar",
+                        ":aria-valuenow": "progress.value",
+                        "aria-valuemin": "0",
+                        ":aria-valuemax": "progress.max",
+                        ":style": "{width: (progress.value / progress.max * 100) + '%'}"
+                    }}, "{{progress.value}} of {{progress.max}}")
                 ])
             ])
     ]).outerHTML
@@ -53,10 +56,16 @@ import ndjsonStream from "can-ndjson-stream";
 export default class ImportExport extends Vue {
     private importFile: File | null = null;
     private progress = {
-        text: "Uploading",
+        text: "",
         value: 0,
         max: 0
     };
+
+    private preventHide(e: any) {
+        if (this.progress.text) {
+            e.preventDefault();
+        }
+    }
 
     private onImportFileChanged(e: any) {
         this.importFile = e.target.files[0];

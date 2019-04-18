@@ -32,7 +32,10 @@ class QuizController {
         const db = new Database();
         const _id = new ObjectID(req.body.id);
 
-        const card = (await db.card.find({_id}).project({front: 1, back: 1}).limit(1).toArray())[0];
+        const card = (await db.card.find({_id}).project({
+            front: 1, back: 1,
+            templateId: 1, noteId: 1
+        }).limit(1).toArray())[0];
 
         if (/@md5\n/.test(card.front)) {
             const [t, n] = await Promise.all([

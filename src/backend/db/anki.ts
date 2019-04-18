@@ -182,8 +182,9 @@ export default class Anki {
                 }
             }) + "\n");
 
-            const subList = templates.splice(0, 100);
+            const subList = templates.splice(0, batch);
             await db.template.insertMany(subList);
+            insertFrom += batch;
         }
 
         const entries = [] as IEntry[];
@@ -250,8 +251,9 @@ export default class Anki {
                 }
             }) + "\n");
 
-            const subList = entries.splice(0, 100);
+            const subList = entries.splice(0, batch);
             await db.insertMany(userId, subList);
+            insertFrom += batch;
         }
     }
 

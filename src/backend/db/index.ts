@@ -120,19 +120,19 @@ export class Database {
             );
         }))).map((r) => r.value!._id);
 
-        let templates = entries.filter((e) => e.model && e.template).map((e) => `${e.template}\x1f${e.model}`);
+        let sourceId: ObjectID | undefined;
+        let templates = entries.filter((e) => e.model && e.template).map((e) => {
+            sourceId = e.sourceId!;
+            return `${e.template}\x1f${e.model}`;
+        });
         templates = templates.filter((t, i) => templates.indexOf(t) === i);
         const templateIds = (await Promise.all((templates.map((t) => {
             const [name, model] = t.split("\x1f");
-            return this.template.findOneAndUpdate(
-                {userId, name, model},
-                {$set: {userId, name, model}},
-                {returnOriginal: false, upsert: true}
-            );
-        })))).map((t) => t.value!._id);
+            return this.template.findOne({sourceId, name, model});
+        })))).map((t) => t!._id);
 
         const noteIds = (await Promise.all(entries.map((e) => {
-            const {entry, data, sourceId} = e;
+            const {entry, data} = e;
             if (entry) {
                 return this.note.insertOne({
                     sourceId: sourceId!,

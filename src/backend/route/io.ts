@@ -8,6 +8,8 @@ class IoController {
     public static async ankiImport(req: Request, res: Response) {
         const uploadedFile = req.files!.apkg as UploadedFile;
 
+        res.writeHead(200, {"Content-Type": "application/ndjson"});
+
         res.write(JSON.stringify({
             status: `Uploaded ${uploadedFile.name}.`
         }) + "\n");
@@ -17,7 +19,11 @@ class IoController {
         await anki.export(userId);
         await anki.close();
 
-        res.end();
+        res.write(JSON.stringify({
+            status: ""
+        }) + "\n");
+
+        return res.end();
     }
 }
 
