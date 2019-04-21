@@ -8,7 +8,7 @@ import asyncHandler from "express-async-handler";
 class EditorController {
     public static async find(req: Request, res: Response): Promise<Response> {
         const rSearch = new SearchResource();
-        const cond = req.body.cond;
+        const cond = rSearch.parse(req.body.q);
         const userId = res.locals.userId;
 
         const offset: number = req.body.offset;

@@ -2,23 +2,17 @@ import P from "parsimmon";
 import XRegExp from "xregexp";
 import moment from "moment";
 
-export interface IMongoSearchParserRule {
+export interface ISearchParserRule {
     anyOf?: string[];
     isString?: string[];
     isDate?: string[];
     isList?: string[];
 }
 
-export class MongoSearchParser {
-    public static due(k: string, due: any[], cond?: any) {
-        cond = cond || {};
-        cond[k] = {$lte: {$toDate: moment().add(moment.duration(due[0], due[1])).toISOString()}};
-        return cond;
-    }
-
+export class SearchParser {
     private lang: P.Language;
 
-    constructor(rule: IMongoSearchParserRule = {}) {
+    constructor(rule: ISearchParserRule = {}) {
         this.lang = P.createLanguage({
             Input: (r) => P.alt(
                 r.OrSentence,
@@ -107,7 +101,7 @@ export class MongoSearchParser {
                     if (v === "due") {
                         k = "nextReview";
                         op = "<=";
-                        v = "now";
+                        v = moment().toDate();
                     } else if (v === "leech") {
                         k = "srsLevel";
                         v = 0;
@@ -128,20 +122,19 @@ export class MongoSearchParser {
                     const m = /^([-+]?\d+)(\S+)$/.exec(v.toString());
 
                     if (m) {
-                        return MongoSearchParser.due(k, [parseInt(m[1]), m[2]]);
+                        v = {$lte: moment().add(moment.duration(parseInt(m[1]), m[2] as any)).toDate()};
+                        op = "<=";
                     } else if (v === "now") {
-                        v = {$toDate: moment().toISOString()};
+                        v = moment().toDate();
                         op = "<=";
                     }
                 }
 
                 switch (op) {
                     case ":":
-                        if (rule.isString) {
-                            if (rule.isString.indexOf(k) !== -1) {
-                                v = {$regex: XRegExp.escape(v.toString())};
-                            }
-                        } else {
+                        if (typeof v === "string") {
+                            v = {$regex: XRegExp.escape(v)};
+                        } else if (rule.isString && rule.isString.indexOf(v) !== -1) {
                             v = {$regex: XRegExp.escape(v.toString())};
                         }
                         break;
@@ -163,10 +156,12 @@ export class MongoSearchParser {
                     case "=":
                     default:
                 }
+                // result[k] = v;
 
-                result[k] = v;
-
-                return result;
+                return {$or: [
+                    {[k]: v},
+                    {[`data.${k}`]: v}
+                ]};
             }),
             Value: (r) => P.alt(
                 r.Number,
@@ -203,4 +198,4 @@ export class MongoSearchParser {
     }
 }
 
-export default MongoSearchParser;
+export default SearchParser;

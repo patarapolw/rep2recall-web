@@ -53,11 +53,7 @@ export default class QuizArea extends Vue {
         const $quizArea = $(".quiz-area", quizAreaEl);
 
         $quizArea.html("");
-        const cardIds = await fetchJSON(globalState.quizApi, {
-            deck: this.state.currentDeck,
-            q: this.state.q,
-            cond: this.state.getCond()
-        });
+        const cardIds = await fetchJSON(globalState.quizApi, {deck: this.state.currentDeck, q: this.state.q});
         this.isQuizStarted = false;
 
         $quizArea.html(h("div", `${cardIds.length.toLocaleString()} entries to go...`).outerHTML);
@@ -121,13 +117,11 @@ export default class QuizArea extends Vue {
                 fetchJSON("/quiz/", {
                     deck: quizState.currentDeck,
                     q: this.state.q,
-                    cond: this.state.getCond(),
                     due: [1, "hour"]
                 }),
                 fetchJSON("/quiz/", {
                     deck: quizState.currentDeck,
                     q: this.state.q,
-                    cond: this.state.getCond(),
                     due: [1, "day"]
                 })
             ]);

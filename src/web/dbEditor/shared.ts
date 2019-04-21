@@ -1,5 +1,3 @@
-import MongoSearchParser from "../MongoSearchParser";
-
 export const dbEditorState = {
     cardEditor: {
         data: [] as any[],
@@ -29,15 +27,7 @@ export const dbEditorState = {
     searchBar: {
         q: "",
         instance: null as any,
-        isActive: false,
-        parser: new MongoSearchParser({
-            isString: ["template", "model", "entry", "front", "back", "note", "deck", "name", "entry"],
-            isDate: ["nextReview"],
-            isList: ["tag"]
-        }),
-        getCond() {
-            return this.parser.parse(this.q);
-        }
+        isActive: false
     }
 };
 

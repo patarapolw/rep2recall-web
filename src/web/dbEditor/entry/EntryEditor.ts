@@ -71,7 +71,27 @@ export default class EntryEditor extends Vue {
                 case "one-line":
                 case "list":
                 case "number":
-                    if (col.name === "tag") {
+                    if (col.name === "template") {
+                        formContent.push(m(EEOneLine, {
+                            props: {col, value: this.entry[col.name] || ""},
+                            on: {input: (_v: string) => {
+                                Vue.set(this.entry, col.name, _v);
+                                if (_v) {
+                                    fetchJSON(globalState.templateApi, {template: _v}).then((t) => {
+                                        if (t) {
+                                            for (const col2 of this.cols) {
+                                                if (t[col2.name]) {
+                                                    this.entry = Object.assign(this.entry, {
+                                                        [col2.name]: t[col2.name]
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
+                            }}
+                        }));
+                    } else if (col.name === "tag") {
                         formContent.push(m(EETag, {
                             props: {col, value: this.entry[col.name] || ""},
                             on: {input: (_v: string) => Vue.set(this.entry, col.name, _v)}
@@ -93,6 +113,8 @@ export default class EntryEditor extends Vue {
         }
 
         if (this.entry.data) {
+            console.log(this.entry);
+
             formContent.push(m("h4", "Template data"));
 
             for (const k of ["model", "template", "entry"]) {
@@ -106,7 +128,7 @@ export default class EntryEditor extends Vue {
             for (const k of Object.keys(this.entry.data)) {
                 const col = {name: k};
                 formContent.push(m(EEMultiLine, {
-                    props: {col, value: this.entry[col.name] || "", readonly: true},
+                    props: {col, value: this.entry.data[col.name] || "", readonly: true},
                     on: {input: (_v: string) => Vue.set(this.entry.data, col.name, _v)}
                 }));
             }
@@ -160,6 +182,8 @@ export default class EntryEditor extends Vue {
         if (id) {
             const r = await fetchJSON(this.editorApi + "findOne", {id});
             this.entry = r;
+
+            console.log(r);
         } else {
             this.entry = {};
         }

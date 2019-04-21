@@ -5,7 +5,6 @@ import globalState from "../../shared";
 import "./TreeView.scss";
 import "@fortawesome/fontawesome-free/css/all.css";
 import TreeViewItem, { ITreeViewItem } from "./TreeViewItem";
-import quizState from "../shared";
 
 @Component
 export default class TreeView extends Vue {
@@ -33,9 +32,6 @@ export default class TreeView extends Vue {
     }
 
     private async getTreeViewData() {
-        this.data = await fetchJSON(globalState.deckApi + "treeview", {
-            q: this.q,
-            cond: quizState.getCond()
-        });
+        this.data = await fetchJSON(globalState.deckApi + "treeview", {q: this.q});
     }
 }

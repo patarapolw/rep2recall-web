@@ -7,6 +7,7 @@ export const globalState = {
     cardEditorApi: "/card/editor/",
     cols: [
         {name: "deck", width: 150, type: "one-line", required: true},
+        {name: "template", width: 150, type: "one-line"},
         {name: "front", width: 400, type: "markdown", required: true},
         {name: "back", width: 400, type: "markdown"},
         {name: "tag", width: 150, type: "list", separator: " "},

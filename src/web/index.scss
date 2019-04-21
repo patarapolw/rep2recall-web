@@ -81,3 +81,7 @@ table {
 .crop {
     overflow: hidden;
 }
+
+.form-control:read-only {
+    background-color: #fff;
+}

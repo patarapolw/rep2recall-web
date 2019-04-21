@@ -1,65 +1,51 @@
 import fs from "fs";
-import unzipper from "unzipper";
-// @ts-ignore;
-import etl from "etl";
 import path from "path";
 import mustache from "mustache";
 import crypto from "crypto";
-import { Readable, Stream } from "stream";
 import sqlite3 from "better-sqlite3";
-import uuid from "uuid/v4";
 import Database, { ITemplate, IEntry, IMedia } from ".";
 import { ObjectID } from "bson";
-import { Response } from "express";
-import { UploadedFile } from "express-fileupload";
+import AdmZip from "adm-zip";
 
 export default class Anki {
-    public static async connect(upload: UploadedFile, res: Response) {
-        let media = {} as any;
-        const dir = uuid();
+    public db: sqlite3.Database;
+    private mediaNameToId: any = {};
+    private filename: string;
+    private dir: string;
+    private callback: (res: any) => any;
 
-        try {
-            fs.mkdirSync(`tmp/${dir}`, {recursive: true});
-        } catch (e) {}
+    constructor(filename: string, fileId: string, callback: (res: any) => any) {
+        this.dir = path.join("tmp", fileId);
+        this.filename = filename;
+        this.callback = callback;
 
-        await new Promise((resolve) => {
-            let stream: Stream;
-            stream = new Readable({
-                read() {
-                    this.push(upload.data);
-                    this.push(null);
-                }
-            });
+        const zip = new AdmZip(path.join(this.dir, filename));
+        const zipCount = zip.getEntries().length;
 
-            stream
-                .pipe(unzipper.Parse())
-                .pipe(etl.map(async (entry: any) => {
-                    if (entry.path === "media") {
-                        media = JSON.parse((await entry.buffer()).toString());
-                    } else {
-                        fs.writeFileSync(path.join("tmp", dir, entry.path), await entry.buffer());
-                    }
-                }))
-                .on("finish", resolve);
+        callback({
+            text: `Unzipping Apkg. File count: ${zipCount}`,
+            max: 0
         });
 
-        const db = new sqlite3(path.join("tmp", dir, "collection.anki2"));
+        zip.extractAllTo(this.dir);
 
-        const { decks, models } = db.prepare("SELECT decks, models FROM col").get();
+        this.db = new sqlite3(path.join(this.dir, "collection.anki2"));
 
-        db.exec(`
+        const { decks, models } = this.db.prepare("SELECT decks, models FROM col").get();
+
+        this.db.exec(`
         CREATE TABLE decks (
             id      INTEGER NOT NULL PRIMARY KEY,
             name    VARCHAR NOT NULL
         )`);
 
-        const stmt = db.prepare("INSERT INTO decks (id, name) VALUES (?, ?)");
+        const stmt = this.db.prepare("INSERT INTO decks (id, name) VALUES (?, ?)");
 
         Object.values(JSON.parse(decks as string)).forEach((deck: any) => {
             stmt.run(deck.id, deck.name);
         });
 
-        db.exec(`
+        this.db.exec(`
         CREATE TABLE models (
             id      INTEGER NOT NULL PRIMARY KEY,
             name    VARCHAR NOT NULL,
@@ -67,7 +53,7 @@ export default class Anki {
             css     VARCHAR
         )`);
 
-        db.exec(`
+        this.db.exec(`
         CREATE TABLE templates (
             id      INTEGER PRIMARY KEY AUTOINCREMENT,
             mid     INTEGER REFERENCES models(id),
@@ -76,8 +62,8 @@ export default class Anki {
             afmt    VARCHAR
         )`);
 
-        const modelInsertStmt = db.prepare("INSERT INTO models (id, name, flds, css) VALUES (?, ?, ?, ?)");
-        const templateInsertStmt = db.prepare("INSERT INTO templates (mid, name, qfmt, afmt) VALUES (?, ?, ?, ?)");
+        const modelInsertStmt = this.db.prepare("INSERT INTO models (id, name, flds, css) VALUES (?, ?, ?, ?)");
+        const templateInsertStmt = this.db.prepare("INSERT INTO templates (mid, name, qfmt, afmt) VALUES (?, ?, ?, ?)");
 
         Object.values(JSON.parse(models as string)).forEach((model: any) => {
             modelInsertStmt.run(model.id, model.name, model.flds.map((f: any) => f.name).join("\x1f"), model.css);
@@ -87,26 +73,10 @@ export default class Anki {
             });
         });
 
-        res.write(JSON.stringify({
-            status: "Prepared Anki SQLite file."
-        }) + "\n");
-
-        return new Anki({ media, db, dir, res, upload });
-    }
-
-    public db: sqlite3.Database;
-    public media: any;
-    private dir: string;
-    private res: Response;
-    private mediaNameToId: any = {};
-    private upload: UploadedFile;
-
-    private constructor({ media, db, dir, res, upload }: any) {
-        this.dir = dir;
-        this.media = media;
-        this.db = db;
-        this.res = res;
-        this.upload = upload;
+        callback({
+            text: "Prepared Anki SQLite file.",
+            max: 0
+        });
     }
 
     public async export(userId: ObjectID) {
@@ -114,19 +84,21 @@ export default class Anki {
 
         const sourceId = (await db.source.insertOne({
             userId,
-            name: this.upload.name,
-            h: md5hasher(this.upload.data),
+            name: this.filename,
+            h: md5hasher(fs.readFileSync(path.join(this.dir, this.filename))),
             created: new Date()
         })).insertedId;
 
         this.mediaNameToId = {} as any;
-        const mediaList = Object.keys(this.media).map((k, i) => {
-            const data = fs.readFileSync(path.join("tmp", this.dir, k));
+        const media = JSON.parse(fs.readFileSync(path.join(this.dir, "media"), "utf8"));
+
+        const mediaList = Object.keys(media).map((k, i) => {
+            const data = fs.readFileSync(path.join(this.dir, k));
             const h = md5hasher(data);
 
             return {
                 sourceId,
-                name: this.media[k],
+                name: media[k],
                 data,
                 h
             } as IMedia;
@@ -134,17 +106,14 @@ export default class Anki {
 
         let insertFrom = 0;
         let batch = 100;
-        let total = Object.keys(this.media).length;
+        let total = Object.keys(media).length;
 
         while (mediaList.length > 0) {
-            this.res.write(JSON.stringify({
-                status: "Uploading media",
-                progress: {
-                    from: insertFrom,
-                    to: insertFrom + batch,
-                    total
-                }
-            }) + "\n");
+            this.callback({
+                text: "Uploading media",
+                current: insertFrom,
+                max: total
+            });
             const subList = mediaList.splice(0, 100);
             const mediaIds = (await db.media.insertMany(subList)).insertedIds;
             subList.forEach((m, i) => {
@@ -173,14 +142,11 @@ export default class Anki {
         total = templates.length;
 
         while (templates.length > 0) {
-            this.res.write(JSON.stringify({
-                status: "Uploading template",
-                progress: {
-                    from: insertFrom,
-                    to: insertFrom + batch,
-                    total
-                }
-            }) + "\n");
+            this.callback({
+                text: "Uploading templates",
+                current: insertFrom,
+                max: total
+            });
 
             const subList = templates.splice(0, batch);
             await db.template.insertMany(subList);
@@ -242,14 +208,11 @@ export default class Anki {
         total = entries.length;
 
         while (entries.length > 0) {
-            this.res.write(JSON.stringify({
-                status: "Uploading notes",
-                progress: {
-                    from: insertFrom,
-                    to: insertFrom + batch,
-                    total
-                }
-            }) + "\n");
+            this.callback({
+                text: "Uploading notes",
+                current: insertFrom,
+                max: total
+            });
 
             const subList = entries.splice(0, batch);
             await db.insertMany(userId, subList);

@@ -1,18 +1,28 @@
 import Database, { IEntry } from "../db";
 import { ObjectID } from "bson";
 import { AggregationCursor } from "mongodb";
+import SearchParser from "./MongoQParser";
 
 export class SearchResource {
     private db: Database;
+    private parser: SearchParser;
 
-    constructor() {
+    constructor(anyOf: string[] = ["template", "front", "back", "note", "deck"]) {
         this.db = new Database();
+        this.parser = new SearchParser({
+            anyOf,
+            isString: ["template", "front", "back", "note", "deck", "name", "entry"],
+            isDate: ["nextReview"],
+            isList: ["tag"]
+        });
+    }
+
+    public parse(q?: string) {
+        return this.parser.parse(q);
     }
 
     public getQuery(userId: ObjectID, cond: any): AggregationCursor<IEntry> {
-        const db = new Database();
-
-        return db.card.aggregate([
+        return this.db.card.aggregate([
             {$match: { userId }},
             {$lookup: {
                 from: "deck",
@@ -58,7 +68,7 @@ export class SearchResource {
                 data: "$n.data"
             }},
             {$match: cond}
-        ]);
+        ], {allowDiskUse: true});
     }
 }
 

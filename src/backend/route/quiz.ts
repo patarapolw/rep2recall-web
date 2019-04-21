@@ -11,7 +11,7 @@ import mustache from "mustache";
 class QuizController {
     public static async build(req: Request, res: Response): Promise<Response> {
         const search = new SearchResource();
-        const cond = req.body.cond;
+        const cond = search.parse(req.body.q);
 
         if (req.body.deck) {
             cond.deck = {$regex: `${XRegExp.escape(req.body.deck)}(/.+)?`};

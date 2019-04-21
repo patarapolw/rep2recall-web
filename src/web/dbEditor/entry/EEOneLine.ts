@@ -21,11 +21,13 @@ export default class EEOneLine extends Vue {
             }, [
                 m("input", {
                     class: ["form-control"],
+                    attrs: {
+                        readonly: this.readonly
+                    },
                     domProps: {
                         value: this.value,
                         name: this.col.name,
-                        required: this.col.required,
-                        readonly: this.readonly
+                        required: this.col.required
                     },
                     on: {
                         input: (e: any) => {

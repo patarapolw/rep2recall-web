@@ -1,5 +1,5 @@
 import express from "express";
-import { mongoClient } from "./db";
+import Database, { mongoClient } from "./db";
 import session from "express-session";
 import dotenv from "dotenv";
 import { Strategy } from "passport-auth0";
@@ -13,7 +13,6 @@ import deckRouter from "./route/deck";
 import quizRouter from "./route/quiz";
 import mediaRouter from "./route/media";
 import ioRouter from "./route/io";
-import fs from "fs";
 import rimraf from "rimraf";
 dotenv.config();
 
@@ -83,5 +82,6 @@ process.on("SIGINT", () => {
 
 (async () => {
     await mongoClient.connect();
+    await new Database().build();
     app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
 })();

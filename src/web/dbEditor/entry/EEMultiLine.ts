@@ -6,7 +6,7 @@ import { toTitle } from "../../util";
 @Component
 export default class EEMultiLine extends Vue {
     @Prop() private col!: IColumn;
-    @Prop() private value?: string | number | null;
+    @Prop() private value?: string;
     @Prop() private readonly?: boolean;
 
     public render(m: CreateElement) {
@@ -21,11 +21,13 @@ export default class EEMultiLine extends Vue {
             }, [
                 m("textarea", {
                     class: ["form-control"],
+                    attrs: {
+                        readonly: this.readonly
+                    },
                     domProps: {
                         value: this.value,
                         name: this.col.name,
-                        required: this.col.required,
-                        readonly: this.readonly
+                        required: this.col.required
                     },
                     on: {input: (e: any) => this.onInput(e.target.value || null)}
                 })

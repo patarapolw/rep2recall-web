@@ -16,14 +16,12 @@ export interface IUser {
 
 export interface IDeck {
     _id?: ObjectID;
-    userId: ObjectID;
     name: string;
     isOpen?: boolean;
 }
 
 export interface ICard {
     _id?: ObjectID;
-    userId: ObjectID;
     deckId: ObjectID;
     templateId?: ObjectID;
     noteId?: ObjectID;
@@ -45,7 +43,7 @@ export interface ISource {
 
 export interface ITemplate {
     _id?: ObjectID;
-    sourceId: ObjectID;
+    sourceId?: ObjectID;
     name: string;
     model?: string;
     front: string;
@@ -55,14 +53,14 @@ export interface ITemplate {
 
 export interface INote {
     _id?: ObjectID;
-    sourceId: ObjectID;
+    sourceId?: ObjectID;
     name: string;
     data: Map<string, string>;
 }
 
 export interface IMedia {
     _id?: ObjectID;
-    sourceId: ObjectID;
+    sourceId?: ObjectID;
     name: string;
     data: Buffer;
     h: string;
@@ -81,7 +79,7 @@ export interface IEntry {
     mnemonic?: string;
     srsLevel?: number;
     nextReview?: string | Date;
-    tag: string[];
+    tag?: string[];
     data?: Map<string, string>;
     sourceId?: ObjectID;
 }
@@ -107,6 +105,23 @@ export class Database {
         this.deck = this.db.collection("deck");
         this.media = this.db.collection("media");
         this.source = this.db.collection("source");
+    }
+
+    public async build() {
+        try {
+            return await Promise.all([
+                this.user.createIndex({email: 1}, {unique: true}),
+                this.user.insertOne({email: process.env.DEFAULT_USER!, secret: "wasp-amusing-absolute-mangle-division-jersey-tabby-wrangle-geologist"}),
+                this.deck.createIndex({userId: 1, name: 1}, {unique: true}),
+                this.card.createIndex({userId: 1, front: 1}, {unique: true}),
+                this.card.createIndex({deckId: 2}),
+                this.card.createIndex({templateId: 3}),
+                this.card.createIndex({noteId: 4}),
+                this.media.createIndex({h: 1}, {unique: true})
+            ]);
+        } catch (e) {}
+
+        return;
     }
 
     public async insertMany(userId: ObjectID, entries: IEntry[]): Promise<ObjectID[]> {
