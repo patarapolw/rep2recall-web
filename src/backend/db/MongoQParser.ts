@@ -156,10 +156,18 @@ export class SearchParser {
                     case "=":
                     default:
                 }
-                // result[k] = v;
+
+                let k0 = k;
+                if (k === "template") {
+                    k0 = "template.name";
+                } else if (k === "model") {
+                    k0 = "template.model";
+                } else if (k === "entry") {
+                    k0 = "note.name";
+                }
 
                 return {$or: [
-                    {[k]: v},
+                    {[k0]: v},
                     {[`data.${k}`]: v}
                 ]};
             }),

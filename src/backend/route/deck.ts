@@ -63,8 +63,6 @@ class DeckController {
         const userId = res.locals.userId;
 
         const deckData = await rSearch.getQuery(userId, cond).project({nextReview: 1, srsLevel: 1, deck: 1}).toArray();
-
-        console.log(JSON.stringify(deckData, null, 2));
         const now = new Date();
 
         const deckList: string[] = deckData.map((d: any) => d.deck);

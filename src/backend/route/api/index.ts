@@ -3,7 +3,7 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import session from "express-session";
 import auth, { toAuthJson } from "./auth";
-import Database, { IUser } from "../../db";
+import Database, { IDbUser } from "../../db";
 import passport from "passport";
 import { Strategy } from "passport-local";
 import { ObjectID } from "bson";
@@ -63,7 +63,7 @@ router.post("/login", auth.optional, (req, res, next) => {
         });
     }
 
-    return passport.authenticate("local", { session: false }, (err, user: IUser, info) => {
+    return passport.authenticate("local", { session: false }, (err, user: IDbUser, info) => {
         if (err) {
             return next(err);
         }

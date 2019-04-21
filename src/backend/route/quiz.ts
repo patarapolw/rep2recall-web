@@ -34,14 +34,12 @@ class QuizController {
 
         const card = (await db.card.find({_id}).project({
             front: 1, back: 1,
-            templateId: 1, noteId: 1
+            template: 1, note: 1
         }).limit(1).toArray())[0];
 
         if (/@md5\n/.test(card.front)) {
-            const [t, n] = await Promise.all([
-                db.template.findOne({_id: card.templateId!}),
-                db.note.findOne({_id: card.noteId!})
-            ]);
+            const t = card.template;
+            const n = card.note;
 
             card.front = mustache.render(t!.front, n!.data);
             card.back = mustache.render(t!.back || "", n!.data);

@@ -31,33 +31,13 @@ export class SearchResource {
                 as: "d"
             }},
             {$unwind: "$d"},
-            {$lookup: {
-                from: "template",
-                localField: "templateId",
-                foreignField: "_id",
-                as: "t"
-            }},
-            {$unwind: {
-                path: "$t",
-                preserveNullAndEmptyArrays: true
-            }},
-            {$lookup: {
-                from: "note",
-                localField: "noteId",
-                foreignField: "_id",
-                as: "n"
-            }},
-            {$unwind: {
-                path: "$t",
-                preserveNullAndEmptyArrays: true
-            }},
             {$project: {
                 id: {$toString: "$_id"},
-                template: "$t.name",
-                model: "$t.model",
-                tFront: "$t.front",
-                tBack: "$t.back",
-                entry: "$n.name",
+                template: "$template.name",
+                model: "$template.model",
+                tFront: "$template.front",
+                tBack: "$template.back",
+                entry: "$note.name",
                 deck: "$d.name",
                 front: 1,
                 back: 1,
@@ -65,7 +45,7 @@ export class SearchResource {
                 tag: 1,
                 srsLevel: 1,
                 nextReview: 1,
-                data: "$n.data"
+                data: "$note.data"
             }},
             {$match: cond}
         ], {allowDiskUse: true});

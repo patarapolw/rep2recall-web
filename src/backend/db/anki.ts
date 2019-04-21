@@ -3,7 +3,7 @@ import path from "path";
 import mustache from "mustache";
 import crypto from "crypto";
 import sqlite3 from "better-sqlite3";
-import Database, { ITemplate, IEntry, IMedia } from ".";
+import Database, { IEntry, IDbMedia } from ".";
 import { ObjectID } from "bson";
 import AdmZip from "adm-zip";
 
@@ -96,12 +96,14 @@ export default class Anki {
             const data = fs.readFileSync(path.join(this.dir, k));
             const h = md5hasher(data);
 
-            return {
+            const m: IDbMedia = {
                 sourceId,
                 name: media[k],
                 data,
                 h
-            } as IMedia;
+            };
+
+            return m;
         });
 
         let insertFrom = 0;
@@ -123,36 +125,6 @@ export default class Anki {
             insertFrom += batch;
         }
 
-        const templates = this.db.prepare(`
-        SELECT t.name AS name, m.name AS model, qfmt AS front, afmt AS back, css
-        FROM templates AS t
-        INNER JOIN models AS m ON m.id = t.mid`).all().map((t) => {
-            const {name, model, front, back, css} = t;
-            return {
-                sourceId,
-                name, model,
-                front: this.convertLink(front),
-                back: this.convertLink(back),
-                css: this.convertLink(css)
-            } as ITemplate;
-        });
-
-        insertFrom = 0;
-        batch = 1000;
-        total = templates.length;
-
-        while (templates.length > 0) {
-            this.callback({
-                text: "Uploading templates",
-                current: insertFrom,
-                max: total
-            });
-
-            const subList = templates.splice(0, batch);
-            await db.template.insertMany(subList);
-            insertFrom += batch;
-        }
-
         const entries = [] as IEntry[];
         const _e = [] as string[];
 
@@ -164,13 +136,15 @@ export default class Anki {
             m.name AS mname,
             d.name AS deck,
             qfmt,
+            afmt,
+            css,
             tags
         FROM cards AS c
         INNER JOIN decks AS d ON d.id = did
         INNER JOIN notes AS n ON n.id = nid
         INNER JOIN models AS m ON m.id = n.mid
         INNER JOIN templates AS t ON t.mid = n.mid`).all().map((raw) => {
-            const { keys, values, tname, mname, deck, qfmt, tags } = raw;
+            const { keys, values, tname, mname, deck, qfmt, afmt, css, tags } = raw;
             const data = {} as any;
             const vs = (values as string).split("\x1f");
             const ks = (keys as string).split("\x1f");
@@ -197,6 +171,9 @@ export default class Anki {
                 entry: vs[0],
                 data,
                 front,
+                tFront: this.convertLink(qfmt),
+                tBack: this.convertLink(afmt),
+                css: this.convertLink(css),
                 tag: (tags as string).split(" "),
                 sourceId
             };

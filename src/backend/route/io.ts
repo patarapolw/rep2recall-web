@@ -38,6 +38,11 @@ class IoController {
         await anki.export(res.locals.userId);
         anki.close();
 
+        res.write(JSON.stringify({
+            text: "Done.",
+            max: 0
+        }) + "\n");
+
         return res.end();
     }
 }

@@ -128,6 +128,7 @@ export default class ImportExport extends Vue {
                         } catch (e) {}
                     }
 
+                    this.progress.text = "";
                     (this.$refs.uploadModal as any).hide();
                 })();
             });

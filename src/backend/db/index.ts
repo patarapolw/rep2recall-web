@@ -7,24 +7,20 @@ declare function interfaceKey<T extends object>(): Array<keyof T>;
 
 export const mongoClient = new MongoClient(process.env.MONGO_URI!, { useNewUrlParser: true });
 
-export interface IUser {
+export interface IDbUser {
     _id?: ObjectID;
     email: string;
     secret: string;
     permission?: any;
 }
 
-export interface IDeck {
+export interface IDbCard {
     _id?: ObjectID;
-    name: string;
-    isOpen?: boolean;
-}
-
-export interface ICard {
-    _id?: ObjectID;
-    deckId: ObjectID;
-    templateId?: ObjectID;
-    noteId?: ObjectID;
+    userId: ObjectID;
+    deckId: number;
+    template?: ITemplate;
+    note?: INote;
+    sourceId?: ObjectID;
     front: string;
     back?: string;
     mnemonic?: string;
@@ -33,7 +29,7 @@ export interface ICard {
     tag?: string[];
 }
 
-export interface ISource {
+export interface IDbSource {
     _id?: ObjectID;
     userId: ObjectID;
     created: Date;
@@ -41,8 +37,21 @@ export interface ISource {
     h: string;
 }
 
-export interface ITemplate {
+export interface IDbMedia {
     _id?: ObjectID;
+    sourceId?: ObjectID;
+    name: string;
+    data: Buffer;
+    h: string;
+}
+
+export interface IDbDeck {
+    _id: number;
+    name: string;
+    isOpen?: boolean;
+}
+
+export interface ITemplate {
     sourceId?: ObjectID;
     name: string;
     model?: string;
@@ -52,18 +61,9 @@ export interface ITemplate {
 }
 
 export interface INote {
-    _id?: ObjectID;
     sourceId?: ObjectID;
     name: string;
     data: Map<string, string>;
-}
-
-export interface IMedia {
-    _id?: ObjectID;
-    sourceId?: ObjectID;
-    name: string;
-    data: Buffer;
-    h: string;
 }
 
 export interface IEntry {
@@ -73,6 +73,7 @@ export interface IEntry {
     entry?: string;
     tFront?: string;
     tBack?: string;
+    css?: string;
     deck: string;
     front: string;
     back?: string;
@@ -85,13 +86,11 @@ export interface IEntry {
 }
 
 export class Database {
-    public user: Collection<IUser>;
-    public template: Collection<ITemplate>;
-    public note: Collection<INote>;
-    public card: Collection<ICard>;
-    public deck: Collection<IDeck>;
-    public media: Collection<IMedia>;
-    public source: Collection<ISource>;
+    public user: Collection<IDbUser>;
+    public card: Collection<IDbCard>;
+    public media: Collection<IDbMedia>;
+    public source: Collection<IDbSource>;
+    public deck: Collection<IDbDeck>;
 
     private db: Db;
 
@@ -99,12 +98,10 @@ export class Database {
         this.db = mongoClient.db("rep2recall");
 
         this.user = this.db.collection("user");
-        this.template = this.db.collection("template");
-        this.note = this.db.collection("note");
         this.card = this.db.collection("card");
-        this.deck = this.db.collection("deck");
         this.media = this.db.collection("media");
         this.source = this.db.collection("source");
+        this.deck = this.db.collection("deck");
     }
 
     public async build() {
@@ -125,50 +122,35 @@ export class Database {
     }
 
     public async insertMany(userId: ObjectID, entries: IEntry[]): Promise<ObjectID[]> {
+        const now = new Date().getTime();
+
         let decks = entries.map((e) => e.deck);
         decks = decks.filter((d, i) => decks.indexOf(d) === i);
-        const deckIds = (await Promise.all(decks.map((d) => {
+        const deckIds = (await Promise.all(decks.map((d, i) => {
             return this.deck.findOneAndUpdate(
                 {userId, name: d},
-                {$set: {userId, name: d}},
+                {
+                    $set: {userId, name: d},
+                    $setOnInsert: {_id: now + i}
+                },
                 {returnOriginal: false, upsert: true}
             );
         }))).map((r) => r.value!._id);
 
-        let sourceId: ObjectID | undefined;
-        let templates = entries.filter((e) => e.model && e.template).map((e) => {
-            sourceId = e.sourceId!;
-            return `${e.template}\x1f${e.model}`;
-        });
-        templates = templates.filter((t, i) => templates.indexOf(t) === i);
-        const templateIds = (await Promise.all((templates.map((t) => {
-            const [name, model] = t.split("\x1f");
-            return this.template.findOne({sourceId, name, model});
-        })))).map((t) => t!._id);
-
-        const noteIds = (await Promise.all(entries.map((e) => {
-            const {entry, data} = e;
-            if (entry) {
-                return this.note.insertOne({
-                    sourceId: sourceId!,
-                    name: entry!,
-                    data: data!
-                }) as Promise<any>;
-            } else {
-                return undefined;
-            }
-        }))).map((n) => n ? n.insertedId : undefined);
-
-        const cards: ICard[] = entries.map((e, i) => {
-            const {deck, nextReview, front, back, mnemonic, srsLevel, tag} = e;
-            return {
+        const cards: IDbCard[] = entries.map((e, i) => {
+            const {deck, nextReview, front, back, mnemonic, srsLevel, tag,
+                model, template, tFront, tBack, css, sourceId, entry, data} = e;
+            const c: IDbCard = {
                 userId,
                 front, back, mnemonic, srsLevel, tag,
                 nextReview: nextReview ? moment(nextReview).toDate() : undefined,
-                deckId: deckIds[decks.indexOf(deck)],
-                noteId: noteIds[i],
-                templateId: e.template && e.model ? templateIds[templates.indexOf(`${e.template}\x1f${e.model}`)] : undefined
-            } as ICard;
+                deckId: deckIds[decks.indexOf(deck)]!,
+                sourceId,
+                template: template ? {name: template, model: model!, front: tFront!, back: tBack, css} : undefined,
+                note: entry ? {name: entry, data: data!} : undefined
+            };
+
+            return c;
         });
 
         const result = await this.card.insertMany(cards);
@@ -182,8 +164,8 @@ export class Database {
         return await this.card.updateOne({_id: u._id}, {$set: c});
     }
 
-    private async transformUpdate(userId: ObjectID, u: Partial<IEntry>): Promise<Partial<ICard>> {
-        const output: Partial<ICard> = {};
+    private async transformUpdate(userId: ObjectID, u: Partial<IEntry>): Promise<Partial<IDbCard>> {
+        const output: Partial<IDbCard> = {};
 
         for (const k of Object.keys(u)) {
             const v = (u as any)[k];
@@ -191,14 +173,17 @@ export class Database {
             if (k === "deck") {
                 const r = await this.deck.findOneAndUpdate(
                     {userId, name: v},
-                    {$set: {userId, name: v}},
+                    {
+                        $set: {userId, name: v},
+                        $setOnInsert: {_id: new Date().getTime()}
+                    },
                     {returnOriginal: false, upsert: true}
                 );
                 delete (u as any)[k];
                 output.deckId = r.value!._id;
             } else if (k === "nextReview") {
                 output.nextReview = moment(v).toDate();
-            } else if (interfaceKey<ICard>().indexOf(k as any) !== -1) {
+            } else if (interfaceKey<IDbCard>().indexOf(k as any) !== -1) {
                 (output as any)[k] = v;
             }
         }
