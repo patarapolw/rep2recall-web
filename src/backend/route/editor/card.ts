@@ -32,8 +32,8 @@ class EditorController {
 
         return res.json({
             data: q[0].data.map((c: any) => {
-                const cData = c.data || {};
                 if (/@md5\n/.test(c.front)) {
+                    const cData = c.data || {};
                     c.front = mustache.render(c.tFront, cData);
                     c.back = c.back || mustache.render(c.tBack || "", cData);
                 }
@@ -55,8 +55,9 @@ class EditorController {
         const c: any = q[0];
 
         if (/@md5\n/.test(c.front)) {
-            c.front = c.tFront;
-            c.back = c.back || c.tBack;
+            const cData = c.data || {};
+            c.front = mustache.render(c.tFront, cData);
+            c.back = c.back || mustache.render(c.tBack || "", cData);
         }
 
         return res.json(c);

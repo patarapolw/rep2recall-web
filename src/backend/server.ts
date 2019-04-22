@@ -20,40 +20,42 @@ const app = express();
 const port = process.env.PORT || 5000;
 app.set("view engine", "ejs");
 
-app.use(session({
-    secret: "7wub186Ly2kl3OahEV8eZ0gNxJvQNSTpZXvBJgjdPaI1lgJi3+99CRvNQjdPxx3q",
-    cookie: {},
-    resave: false,
-    saveUninitialized: true
-}));
+if (!process.env.DEFAULT_USER) {
+    app.use(session({
+        secret: "7wub186Ly2kl3OahEV8eZ0gNxJvQNSTpZXvBJgjdPaI1lgJi3+99CRvNQjdPxx3q",
+        cookie: {},
+        resave: false,
+        saveUninitialized: true
+    }));
 
-const auth0Strategy = new Strategy(
-    {
-        domain: process.env.AUTH0_DOMAIN!,
-        clientID: process.env.AUTH0_CLIENT_ID!,
-        clientSecret: process.env.AUTH0_CLIENT_SECRET!,
-        callbackURL:
-            process.env.AUTH0_CALLBACK_URL || `http://localhost:${port}/callback`
-    },
-    (accessToken, refreshToken, extraParams, profile, done) => {
-        // accessToken is the token to call Auth0 API (not needed in the most cases)
-        // extraParams.id_token has the JSON Web Token
-        // profile has all the information from the user
-        return done(null, profile);
-    }
-);
-passport.use(auth0Strategy);
+    const auth0Strategy = new Strategy(
+        {
+            domain: process.env.AUTH0_DOMAIN!,
+            clientID: process.env.AUTH0_CLIENT_ID!,
+            clientSecret: process.env.AUTH0_CLIENT_SECRET!,
+            callbackURL:
+                process.env.AUTH0_CALLBACK_URL || `http://localhost:${port}/callback`
+        },
+        (accessToken, refreshToken, extraParams, profile, done) => {
+            // accessToken is the token to call Auth0 API (not needed in the most cases)
+            // extraParams.id_token has the JSON Web Token
+            // profile has all the information from the user
+            return done(null, profile);
+        }
+    );
+    passport.use(auth0Strategy);
 
-app.use(passport.initialize());
-app.use(passport.session());
+    app.use(passport.initialize());
+    app.use(passport.session());
 
-passport.serializeUser((user, done) => {
-    done(null, user);
-});
+    passport.serializeUser((user, done) => {
+        done(null, user);
+    });
 
-passport.deserializeUser((user, done) => {
-    done(null, user);
-});
+    passport.deserializeUser((user, done) => {
+        done(null, user);
+    });
+}
 
 app.use(express.static("public"));
 app.use(express.static("dist"));
@@ -74,7 +76,7 @@ app.get("/", (req, res) => {
     });
 });
 
-app.post("/loginStatus", (req, res) => res.json(req.user));
+app.post("/loginStatus", (req, res) => res.json(process.env.DEFAULT_USER || req.user));
 
 process.on("SIGINT", () => {
     rimraf.sync("tmp");

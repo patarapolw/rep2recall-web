@@ -8,7 +8,6 @@ import BootstrapVue from "bootstrap-vue";
 import "bootstrap";
 import CardEditor from "./DbEditor/CardEditor";
 import ImportExport from "./ImportExport";
-import m from "hyperscript";
 import "./contextmenu";
 import Front from "./Front";
 import { fetchJSON } from "./util";
@@ -28,87 +27,121 @@ const router = new VueRouter({
 const app = new Vue({
     router,
     components: {Counter, SearchBar},
-    template: m("div.h-100", [
-        m("nav.navbar.navbar-expand-lg.navbar-light.bg-light", [
-            m("a.navbar-brand", {href: "#"}, "Rep2Recall"),
-            m("button.navbar-toggler", {
-                "data-target": "#navbarSupportedContent",
-                "type": "button"
+    render(m) {
+        return m("div", {class: ["h-100"]}, [
+            m("nav", {
+                class: ["navbar", "navbar-expand-lg", "navbar-light", "bg-light"]
             }, [
-                m("span.navbar-toggler-icon")
-            ]),
-            m("div.collapse.navbar-collapse#navbarSupportedContent", [
-                m("ul.navbar-nav.mr-auto", [
-                    m("li", {
-                        attrs: {
-                            ":class": "['nav-item', $route.path === '/quiz' ? 'active' : '']",
-                            "v-on:click.capture": "!displayName ? captureClick : undefined"
-                        }
-                    }, [
-                        m("router-link.nav-link", {attrs: {to: "/quiz"}}, "Quiz")
-                    ]),
-                    m("li", {
-                        attrs: {
-                            ":class": "['nav-item', $route.path === '/editor' ? 'active' : '']",
-                            "v-on:click.capture": "!displayName ? captureClick : undefined"
-                        }
-                    }, [
-                        m("router-link.nav-link", {attrs: {to: "/editor"}}, "Editor")
-                    ]),
-                    m("li", {
-                        attrs: {
-                            ":class": "['nav-item', $route.path === '/importExport' ? 'active' : '']",
-                            "v-on:click.capture": "!displayName ? captureClick : undefined"
-                        }
-                    }, [
-                        m("router-link.nav-link", {attrs: {to: "/importExport"}}, "Import")
-                    ]),
-                    m("li.nav-item", [
-                        m("a.nav-link", {
-                            href: "https://github.com/patarapolw/rep2recall-web",
-                            target: "_blank"
-                        }, "About")
-                    ]),
-                    m("counter")
+                m("a", {
+                    class: ["navbar-brand"],
+                    domProps: {href: "#"}
+                }, "Rep2Recall"),
+                m("button", {
+                    class: ["navbar-toggler"],
+                    attrs: {
+                        "data-target": "#navbarSupportedContent",
+                        "type": "button"
+                    }
+                }, [
+                    m("span", {class: "navbar-toggler-icon"})
                 ]),
-                m("ul.navbar-nav", [
-                    m("search-bar"),
-                    m("button.btn.form-control.nav-item.mt-1.mr-2", {attrs: {
-                        ":class": "displayName ? 'btn-outline-danger' : 'btn-outline-success'",
-                        "v-on:click": "logInOut"
-                    }}, "{{displayName ? 'Logout' : 'Login'}}")
+                m("div", {
+                    class: ["collapse", "navbar-collapse"],
+                    attrs: {id: "navbarSupportedContent"}
+                }, [
+                    m("ul", {
+                        class: ["navbar-nav", "mr-auto"]
+                    }, [
+                        m("li", {
+                            attrs: {
+                                disabled: !this.displayName
+                            },
+                            class: ["nav-item", this.$route.path === "/quiz" ? "active" : ""]
+                        }, [
+                            m("router-link", {
+                                class: ["nav-link"],
+                                props: {to: "/quiz", event: !this.displayName ? "" : "click"}
+                            }, "Quiz")
+                        ]),
+                        m("li", {
+                            attrs: {
+                                disabled: !this.displayName
+                            },
+                            class: ["nav-item", this.$route.path === "/editor" ? "active" : ""]
+                        }, [
+                            m("router-link", {
+                                class: ["nav-link"],
+                                props: {to: "/editor", event: !this.displayName ? "" : "click"}
+                            }, "Editor")
+                        ]),
+                        m("li", {
+                            attrs: {
+                                disabled: !this.displayName
+                            },
+                            class: ["nav-item", this.$route.path === "/importExport" ? "active" : ""]
+                        }, [
+                            m("router-link", {
+                                class: ["nav-link"],
+                                props: {to: "/importExport", event: !this.displayName ? "" : "click"}
+                            }, "Import")
+                        ]),
+                        m("li", {
+                            class: ["nav-item"]
+                        }, [
+                            m("a", {
+                                class: ["nav-link"],
+                                domProps: {href: "https://github.com/patarapolw/rep2recall-web"},
+                                attrs: {target: "_blank"}
+                            }, "About")
+                        ]),
+                        m(Counter)
+                    ]),
+                    m("ul", {
+                        class: ["navbar-nav"]
+                    }, [
+                        m(SearchBar),
+                        m("button", {
+                            class: ["btn", "form-control", "nav-item", "mt-1", "mr-2",
+                            this.displayName ? "btn-outline-danger" : "btn-outline-success"],
+                            style: {display: typeof this.displayName === "string" ? "none" : "block"},
+                            on: {click: () => location.replace(this.displayName ? "/logout" : "/login")}
+                        }, this.displayName ? "Logout" : "Login")
+                    ])
                 ])
-            ])
-        ]),
-        m("router-view")
-    ]).outerHTML,
+            ]),
+            m("router-view")
+        ]);
+    },
     data: {
         displayName: null as any
     },
     methods: {
         async getLoginStatus() {
             const r = (await fetchJSON("/loginStatus"));
-            if (typeof r === "object") {
-                this.displayName = r.displayName;
+            if (typeof r === "object" || typeof r === "string") {
+                this.displayName = r.displayName || r;
                 if (this.$route.path === "/") {
                     router.push("/quiz");
                 }
             } else {
                 this.displayName = null;
-                router.push("/");
+                if (this.$route.path !== "/") {
+                    router.push("/");
+                }
             }
         },
-        logInOut() {
-            location.replace(this.displayName ? "/logout" : "/login");
-        },
-        captureClick(e: any) {
-            e.preventDefault();
+        handleRouteChange(route: any) {
+            if (this.displayName) {
+                this.$router.push(route);
+            }
         }
     },
     created() {
+        // @ts-ignore
         this.getLoginStatus();
     },
     beforeUpdate() {
+        // @ts-ignore
         this.getLoginStatus();
     }
 }).$mount("#App");
