@@ -1,5 +1,6 @@
 import { Vue, Component } from "vue-property-decorator";
 import m from "hyperscript";
+import dbEditorState from "./DbEditor/shared";
 
 @Component({
     template: m(".container.mt-3", [
@@ -65,6 +66,12 @@ export default class ImportExport extends Vue {
             return (this.max ? this.current / this.max * 100 : 100).toFixed(0) + "%";
         }
     };
+
+    constructor(props: any) {
+        super(props);
+        dbEditorState.counter.isActive = false;
+        dbEditorState.searchBar.isActive = false;
+    }
 
     private preventHide(e: any) {
         if (this.progress.text) {

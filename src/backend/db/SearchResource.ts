@@ -1,4 +1,4 @@
-import Database, { IEntry } from "../db";
+import Database from "../db";
 import { ObjectID } from "bson";
 import { AggregationCursor } from "mongodb";
 import SearchParser from "./MongoQParser";
@@ -21,7 +21,7 @@ export class SearchResource {
         return this.parser.parse(q);
     }
 
-    public getQuery(userId: ObjectID, cond: any): AggregationCursor<IEntry> {
+    public getQuery(userId: ObjectID, cond: any, options: any[]): AggregationCursor<any> {
         return this.db.card.aggregate([
             {$match: { userId }},
             {$lookup: {
@@ -47,7 +47,8 @@ export class SearchResource {
                 nextReview: 1,
                 data: "$note.data"
             }},
-            {$match: cond}
+            {$match: cond},
+            ...options
         ], {allowDiskUse: true});
     }
 }

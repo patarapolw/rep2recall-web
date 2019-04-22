@@ -16,14 +16,22 @@ class EditorController {
         const sortBy: string = req.body.sortBy || "deck";
         const desc: boolean = req.body.desc || false;
 
-        const q = rSearch.getQuery(userId, cond);
-        const [data, ids] = await Promise.all([
-            rSearch.getQuery(userId, cond).sort({[sortBy]: desc ? -1 : 1}).skip(offset).limit(limit).toArray(),
-            rSearch.getQuery(userId, cond).project({_id: 1}).toArray()
-        ]);
+        const q = await rSearch.getQuery(userId, cond, [
+            {$facet: {
+                data: [
+                    {$sort: {[sortBy]: desc ? -1 : 1}},
+                    {$skip: offset},
+                    {$limit: limit}
+                ],
+                count: [{$group: {
+                    _id: null,
+                    count: {$sum: 1}
+                }}]
+            }}
+        ]).toArray();
 
         return res.json({
-            data: data.map((c: any) => {
+            data: q[0].data.map((c: any) => {
                 const cData = c.data || {};
                 if (/@md5\n/.test(c.front)) {
                     c.front = mustache.render(c.tFront, cData);
@@ -32,7 +40,7 @@ class EditorController {
 
                 return c;
             }),
-            count: ids.length
+            count: q[0].count[0].count
         });
     }
 
@@ -41,8 +49,10 @@ class EditorController {
         const cond = {id: req.body.id};
         const userId = res.locals.userId;
 
-        const q = rSearch.getQuery(userId, cond);
-        const c: any = (await q.limit(1).toArray())[0];
+        const q = await rSearch.getQuery(userId, cond, [
+            {$limit: 1}
+        ]).toArray();
+        const c: any = q[0];
 
         if (/@md5\n/.test(c.front)) {
             c.front = c.tFront;

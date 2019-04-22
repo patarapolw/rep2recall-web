@@ -11,19 +11,24 @@ import mustache from "mustache";
 class QuizController {
     public static async build(req: Request, res: Response): Promise<Response> {
         const search = new SearchResource();
-        const cond = search.parse(req.body.q);
+        let cond = search.parse(req.body.q);
 
         if (req.body.deck) {
             cond.deck = {$regex: `${XRegExp.escape(req.body.deck)}(/.+)?`};
         }
 
-        cond.$or = [
-            {nextReview: {$exists: false}},
-            {nextReview: {$in: [null, ""]}},
-            {nextReview: {$lt: new Date()}}
-        ];
+        cond = {$and: [
+            cond,
+            {$or: [
+                {nextReview: {$exists: false}},
+                {nextReview: {$in: [null, ""]}},
+                {nextReview: {$lt: new Date()}}
+            ]}
+        ]};
 
-        const cards = await search.getQuery(res.locals.userId, cond).project({id: {$toString: "$_id"}}).toArray();
+        const cards = await search.getQuery(res.locals.userId, cond, [
+            {$project: {id: 1}}
+        ]).toArray();
 
         return res.json(cards.map((c: any) => c.id));
     }
