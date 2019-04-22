@@ -101,5 +101,8 @@
     "build": "yarn run tsc && rimraf dist && webpack --config webpack.prod.js",
     "tsc": "tsc -p src/backend",
     "tsc:watch": "tsc -w -p src/backend"
+  },
+  "engines": {
+    "yarn": "1.15.2"
   }
 }
