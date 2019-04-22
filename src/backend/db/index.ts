@@ -1,6 +1,7 @@
 import { MongoClient, Db, Collection, ObjectID } from "mongodb";
 import dotenv from "dotenv";
 import moment from "moment";
+import crypto from "crypto";
 dotenv.config();
 
 declare function interfaceKey<T extends object>(): Array<keyof T>;
@@ -106,8 +107,17 @@ export class Database {
 
     public async build() {
         try {
+            const secret = await new Promise((resolve, reject) => {
+                crypto.randomBytes(48, (err, b) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve(b.toString("base64"));
+                });
+            }) as string;
+
             if (process.env.DEFAULT_USER) {
-                await this.user.insertOne({email: process.env.DEFAULT_USER!, secret: "wasp-amusing-absolute-mangle-division-jersey-tabby-wrangle-geologist"});
+                await this.user.insertOne({email: process.env.DEFAULT_USER!, secret});
             }
 
             return await Promise.all([
