@@ -141,12 +141,6 @@ export default class DbEditor extends Vue {
         this.fetchData();
     }
 
-    public beforeUpdate() {
-        if (this.data.length === 0) {
-            this.fetchData();
-        }
-    }
-
     public updated() {
         resizableGrid($("table")[0]);
     }

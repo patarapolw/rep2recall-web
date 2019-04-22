@@ -40,7 +40,7 @@ class EditorController {
 
                 return c;
             }),
-            count: q[0].count[0].count
+            count: q[0].count[0] ? q[0].count[0].count : 0
         });
     }
 

@@ -40,6 +40,7 @@ const app = new Vue({
                     class: ["navbar-toggler"],
                     attrs: {
                         "data-target": "#navbarSupportedContent",
+                        "data-toggle": "collapse",
                         "type": "button"
                     }
                 }, [
