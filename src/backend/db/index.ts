@@ -28,6 +28,8 @@ export interface IDbCard {
     srsLevel?: number;
     nextReview?: Date;
     tag?: string[];
+    created?: Date;
+    modified?: Date;
 }
 
 export interface IDbSource {
@@ -147,6 +149,7 @@ export class Database {
             );
         }))).map((r) => r.value!._id);
 
+        const now = new Date();
         const cards: IDbCard[] = entries.map((e, i) => {
             const {deck, nextReview, front, back, mnemonic, srsLevel, tag,
                 model, template, tFront, tBack, css, sourceId, entry, data} = e;
@@ -157,7 +160,8 @@ export class Database {
                 deckId: deckIds[decks.indexOf(deck)]!,
                 sourceId,
                 template: template ? {name: template, model: model!, front: tFront!, back: tBack, css} : undefined,
-                note: entry ? {name: entry, data: data!} : undefined
+                note: entry ? {name: entry, data: data!} : undefined,
+                created: now
             };
 
             return c;
@@ -171,6 +175,7 @@ export class Database {
 
     public async update(userId: ObjectID, u: Partial<IEntry>) {
         const c = await this.transformUpdate(userId, u);
+        c.modified = new Date();
         return await this.card.updateOne({_id: u._id}, {$set: c});
     }
 

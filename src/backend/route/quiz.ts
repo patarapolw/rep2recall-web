@@ -65,7 +65,8 @@ class QuizController {
             c.nextReview = QuizResource.getNextReview(c.srsLevel);
             db.card.updateOne({_id}, {$set: {
                 srsLevel: c.srsLevel,
-                nextReview: c.nextReview
+                nextReview: c.nextReview,
+                modified: new Date()
             }});
         });
 
@@ -84,7 +85,8 @@ class QuizController {
             c.nextReview = QuizResource.repeat();
             db.card.updateOne({_id}, {$set: {
                 srsLevel: c.srsLevel,
-                nextReview: c.nextReview
+                nextReview: c.nextReview,
+                modified: new Date()
             }});
         });
 
