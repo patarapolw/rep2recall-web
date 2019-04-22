@@ -1,7 +1,7 @@
-const common = require("./webpack.common");
+const { web } = require("./webpack.common");
 
 module.exports = {
-    ...common,
+    ...web,
     mode: "production",
     devtool: "source-map"
 };
