@@ -106,9 +106,12 @@ export class Database {
 
     public async build() {
         try {
+            if (process.env.DEFAULT_USER) {
+                await this.user.insertOne({email: process.env.DEFAULT_USER!, secret: "wasp-amusing-absolute-mangle-division-jersey-tabby-wrangle-geologist"});
+            }
+
             return await Promise.all([
                 this.user.createIndex({email: 1}, {unique: true}),
-                this.user.insertOne({email: process.env.DEFAULT_USER!, secret: "wasp-amusing-absolute-mangle-division-jersey-tabby-wrangle-geologist"}),
                 this.deck.createIndex({userId: 1, name: 1}, {unique: true}),
                 this.card.createIndex({userId: 1, front: 1}, {unique: true}),
                 this.card.createIndex({deckId: 2}),
