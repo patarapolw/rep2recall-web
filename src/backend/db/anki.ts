@@ -6,6 +6,7 @@ import sqlite3 from "better-sqlite3";
 import Database, { IEntry, IDbMedia } from ".";
 import { ObjectID } from "bson";
 import AdmZip from "adm-zip";
+import shortid from "shortid";
 
 export default class Anki {
     public db: sqlite3.Database;
@@ -102,6 +103,7 @@ export default class Anki {
                 const h = md5hasher(data);
 
                 const m: IDbMedia = {
+                    _id: shortid.generate(),
                     sourceId,
                     name: media[k],
                     data,

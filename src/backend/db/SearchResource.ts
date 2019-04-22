@@ -31,12 +31,19 @@ export class SearchResource {
                 as: "d"
             }},
             {$unwind: "$d"},
+            {$lookup: {
+                from: "source",
+                localField: "sourceId",
+                foreignField: "_id",
+                as: "s"
+            }},
             {$project: {
                 id: {$toString: "$_id"},
                 template: "$template.name",
                 model: "$template.model",
                 tFront: "$template.front",
                 tBack: "$template.back",
+                css: "$template.css",
                 entry: "$note.name",
                 deck: "$d.name",
                 front: 1,
@@ -45,7 +52,10 @@ export class SearchResource {
                 tag: 1,
                 srsLevel: 1,
                 nextReview: 1,
-                data: "$note.data"
+                created: 1,
+                modified: 1,
+                data: "$note.data",
+                source: "s.name"
             }},
             {$match: cond},
             ...options

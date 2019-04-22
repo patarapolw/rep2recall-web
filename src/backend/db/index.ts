@@ -41,8 +41,8 @@ export interface IDbSource {
 }
 
 export interface IDbMedia {
-    _id?: ObjectID;
-    sourceId?: ObjectID;
+    _id: string;
+    sourceId: ObjectID;
     name: string;
     data: Buffer;
     h: string;
@@ -55,7 +55,6 @@ export interface IDbDeck {
 }
 
 export interface ITemplate {
-    sourceId?: ObjectID;
     name: string;
     model?: string;
     front: string;
@@ -64,7 +63,6 @@ export interface ITemplate {
 }
 
 export interface INote {
-    sourceId?: ObjectID;
     name: string;
     data: Map<string, string>;
 }
