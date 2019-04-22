@@ -89,40 +89,46 @@ export default class Anki {
             created: new Date()
         })).insertedId;
 
-        this.mediaNameToId = {} as any;
-        const media = JSON.parse(fs.readFileSync(path.join(this.dir, "media"), "utf8"));
+        let insertFrom;
+        let batch;
+        let total;
 
-        const mediaList = Object.keys(media).map((k, i) => {
-            const data = fs.readFileSync(path.join(this.dir, k));
-            const h = md5hasher(data);
+        if (process.env.DEFAULT_USER) {
+            this.mediaNameToId = {} as any;
+            const media = JSON.parse(fs.readFileSync(path.join(this.dir, "media"), "utf8"));
 
-            const m: IDbMedia = {
-                sourceId,
-                name: media[k],
-                data,
-                h
-            };
+            const mediaList = Object.keys(media).map((k, i) => {
+                const data = fs.readFileSync(path.join(this.dir, k));
+                const h = md5hasher(data);
 
-            return m;
-        });
+                const m: IDbMedia = {
+                    sourceId,
+                    name: media[k],
+                    data,
+                    h
+                };
 
-        let insertFrom = 0;
-        let batch = 100;
-        let total = Object.keys(media).length;
-
-        while (mediaList.length > 0) {
-            this.callback({
-                text: "Uploading media",
-                current: insertFrom,
-                max: total
-            });
-            const subList = mediaList.splice(0, 100);
-            const mediaIds = (await db.media.insertMany(subList)).insertedIds;
-            subList.forEach((m, i) => {
-                this.mediaNameToId[m.name] = mediaIds[i];
+                return m;
             });
 
-            insertFrom += batch;
+            insertFrom = 0;
+            batch = 100;
+            total = Object.keys(media).length;
+
+            while (mediaList.length > 0) {
+                this.callback({
+                    text: "Uploading media",
+                    current: insertFrom,
+                    max: total
+                });
+                const subList = mediaList.splice(0, 100);
+                const mediaIds = (await db.media.insertMany(subList)).insertedIds;
+                subList.forEach((m, i) => {
+                    this.mediaNameToId[m.name] = mediaIds[i];
+                });
+
+                insertFrom += batch;
+            }
         }
 
         const entries = [] as IEntry[];
@@ -203,7 +209,7 @@ export default class Anki {
 
     private convertLink(s: string): string {
         return s.replace(/(?:(?:href|src)=")([^"]+)(?:")/, (m, p1) => {
-            return `/media/${this.mediaNameToId[p1]}`;
+            return `/media/${this.mediaNameToId[p1] || ""}`;
         });
     }
 }
