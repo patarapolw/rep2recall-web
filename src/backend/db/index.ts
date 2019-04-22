@@ -17,7 +17,7 @@ export interface IDbUser {
 export interface IDbCard {
     _id?: ObjectID;
     userId: ObjectID;
-    deckId: number;
+    deckId: ObjectID;
     template?: ITemplate;
     note?: INote;
     sourceId?: ObjectID;
@@ -46,7 +46,7 @@ export interface IDbMedia {
 }
 
 export interface IDbDeck {
-    _id: number;
+    _id?: ObjectID;
     name: string;
     isOpen?: boolean;
 }
@@ -122,16 +122,13 @@ export class Database {
     }
 
     public async insertMany(userId: ObjectID, entries: IEntry[]): Promise<ObjectID[]> {
-        const now = new Date().getTime();
-
         let decks = entries.map((e) => e.deck);
         decks = decks.filter((d, i) => decks.indexOf(d) === i);
         const deckIds = (await Promise.all(decks.map((d, i) => {
             return this.deck.findOneAndUpdate(
                 {userId, name: d},
                 {
-                    $set: {userId, name: d},
-                    $setOnInsert: {_id: now + i}
+                    $set: {userId, name: d}
                 },
                 {returnOriginal: false, upsert: true}
             );
@@ -174,8 +171,7 @@ export class Database {
                 const r = await this.deck.findOneAndUpdate(
                     {userId, name: v},
                     {
-                        $set: {userId, name: v},
-                        $setOnInsert: {_id: new Date().getTime()}
+                        $set: {userId, name: v}
                     },
                     {returnOriginal: false, upsert: true}
                 );
