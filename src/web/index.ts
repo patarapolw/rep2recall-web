@@ -82,7 +82,7 @@ const app = new Vue({
                     }
                 }),
             ]),
-            h("b-nav-item", { attrs: { to: "/editor" } }, [
+            h("b-nav-item", { attrs: { to: "/settings" } }, [
                 h("i.fas.fa-cog.nav-icon", {
                     attrs: {
                         "v-b-tooltip.hover": "",

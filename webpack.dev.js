@@ -11,9 +11,9 @@ module.exports = {
         open: true,
         contentBase: path.resolve(__dirname, "public"),
         proxy: {
-            "/api": `http://localhost:${process.env.PORT || 5000}`,
+            "/api": `http://localhost:${process.env.PORT || 7000}`,
             "/socket.io": {
-                target: `http://localhost:${process.env.PORT || 5000}`,
+                target: `http://localhost:${process.env.PORT || 7000}`,
                 ws: true
             }
         },

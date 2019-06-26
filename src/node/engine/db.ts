@@ -142,16 +142,23 @@ export class Database {
         const eValidSource = entries.filter((e) => e.sourceH);
         const now = new Date();
 
-        const sourceId = (Object.values((await this.source.insertMany(eValidSource.filter((e, i) => {
+        let sourceH: string = "";
+        let sourceId: ObjectID;
+        await this.source.insertMany(eValidSource.filter((e, i) => {
             return eValidSource.map((e1) => e1.sourceH).indexOf(e.sourceH) === i
         }).map((e) => {
+            sourceH = e.sourceH;
             return {
                 userId,
                 name: e.source,
                 created: e.sourceCreated || now,
                 h: e.sourceH
             };
-        }))).insertedIds))[0];
+        }), {ordered: false});
+
+        if (sourceH) {
+            sourceId = (await this.source.findOne({h: sourceH}))!._id!
+        }
 
         const eValidTemplate = entries.filter((e) => e.tFront);
         const tMap0: {[key: string]: number} = {};
@@ -167,9 +174,11 @@ export class Database {
                 back: e.tBack,
                 css: e.css,
                 js: e.js,
-                sourceId: e.sourceId || sourceId
+                sourceId
             }
-        }))).insertedIds;
+        }), {ordered: false})).insertedIds;
+
+        console.log(tMap1);
 
         const eValidNote = entries.filter((e) => e.data);
         const nMap0: {[key: string]: number} = {};
@@ -181,9 +190,9 @@ export class Database {
                 userId,
                 key: e.key,
                 data: e.data,
-                sourceId: e.sourceId || sourceId
+                sourceId
             }
-        }))).insertedIds
+        }, {ordered: false}))).insertedIds
 
         const dMap: {[key: string]: ObjectID} = {};
         const decks = entries.map((e) => e.deck);
@@ -203,9 +212,10 @@ export class Database {
                 deckId: dMap[e.deck],
                 noteId: nMap1[nMap0[e.key]],
                 templateId: tMap1[tMap0[`${e.template}\x1f${e.model}`]],
-                created: now
+                created: now,
+                tag: e.tag
             }
-        }))).insertedIds);
+        }), {ordered: false})).insertedIds);
     }
 
     public async parseCond(
@@ -366,16 +376,30 @@ export class Database {
         return (await this.card.deleteMany({_id: {$in: ids.map((id) => new ObjectID(id))}})).result;
     }
 
-    public async renderFromId(userId: ObjectID, cardId: string): Promise<any> {
-        const c = await this.parseCond(userId, {
-            cond: {_id: new ObjectID(cardId)},
-            fields: new Set(["_id"])
+    public async render(userId: ObjectID, cardId: string): Promise<any> {
+        const r = await this.parseCond(userId, {
+            cond: {_id: new ObjectID(cardId)}
         }, {
             limit: 1,
-            fields: ["front", "back"]
+            fields: ["front", "back", "mnemonic", "tFront", "tBack", "data"]
         });
 
-        return c.data[0];
+        const c = r.data[0];
+        const {tFront, tBack, data} = c;
+        
+        if (/@md5\n/.test(c.front)) {
+            c.front = ankiMustache(tFront, data);
+        }
+
+        if (/@md5\n/.test(c.back)) {
+            c.back = ankiMustache(tBack || "", data, c.front);
+        }
+
+        return {
+            front: c.front,
+            back: c.back,
+            mnemonic: c.mnemonic
+        }
     }
 
     public async markRight(userId: ObjectID, cardId?: ObjectID, cardData?: {[k: string]: any}): Promise<ObjectID | null> {

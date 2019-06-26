@@ -35,13 +35,6 @@ export default class SettingsUi extends Vue {
         });
     }
 
-    private openMediaFolder() {
-        // @ts-ignore
-        if (window.process && window.process.type) {
-            require("electron").shell.openItem(this.mediaFolder);
-        }
-    }
-
     private async onResetDatabaseClicked() {
         const r = await swal({
             text: "Please ensure you want to reset the database. The app will restart afterwards.",
@@ -52,20 +45,6 @@ export default class SettingsUi extends Vue {
 
         if (r) {
             await fetchJSON("/api/reset", {}, "DELETE")
-            // @ts-ignore
-            if (window.process && window.process.type) {
-                await swal({
-                    text: "App server will now restart.",
-                    icon: "info"
-                });
-                const ipc = require("electron").ipcRenderer;
-                ipc.send("restart-server");
-            } else {
-                await swal({
-                    text: "Please manually restart the app server.",
-                    icon: "info"
-                });
-            }
         }
     }
 }

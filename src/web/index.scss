@@ -10,9 +10,11 @@ $fa-font-path: "~@fortawesome/fontawesome-free/webfonts";
 @import "~codemirror/lib/codemirror";
 @import "~codemirror/theme/base16-light";
 
-$nav-button-size: 70px;
+$nav-width: 70px;
 
 .stretched {
+    margin: 0;
+    padding: 0;
     width: 100%;
     height: 100%;
 }
@@ -21,73 +23,21 @@ $nav-button-size: 70px;
     overflow: scroll;
 }
 
+.separate-vertical {
+    position: relative;
+    background-color: lightgray;
+    height: 100%;
+    width: 1px;
+    top: 0;
+}
+
 .body {
     position: fixed;
-    border: 1px solid lightgray;
     height: 100%;
     width: 100%;
-    left: $nav-button-size;
+    left: $nav-width + 1px;
     top: 0;
     overflow: scroll;
-}
-
-.datetime-nullable {
-    > input {
-        background-color: white !important;
-    }
-}
-
-iframe {
-    margin: 0;
-    padding: 1em;
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-
-    &.html-view {
-        min-width: 400px;
-        min-height: 500px;
-    }
-}
-
-.col-form-label,
-.datetime-nullable.input-group {
-    padding: 0;
-}
-
-.markdown-editor {
-    .CodeMirror {
-        border: 1px solid lightgray;
-        padding: 0;
-    }
-
-    .CodeMirror,
-    .CodeMirror-scroll {
-        height: 150px;
-        min-height: 150px;
-    }
-
-    .preview {
-        padding: 0 !important;
-    }
-}
-
-.flatten {
-    display: none;
-}
-
-.needs-validation.was-validated {
-    .form-not-required {
-        border: 1px solid #28a745;
-        border-radius: 0.25rem;
-    }
-
-    .form-required {
-        border: 1px solid red;
-        border-radius: 0.25rem;
-    }
 }
 
 button.dropdown-toggle {
@@ -96,31 +46,37 @@ button.dropdown-toggle {
     padding-left: 0px;
 }
 
-.nav-icon {
-    width: 70px;
-    height: 70px;
-    font-size: 50px;
-    text-decoration: none !important;
-    color: darkblue;
-    padding: 0.5rem 0.5rem;
-
-    &:hover {
-        color: blue;
-    }
-}
-
-#toast-container .toast-close-button {
-    font: inherit;
-    margin-top: 0.2em;
-
-    &:hover {
-        color: blue;
-    }
-}
-
 .dropdown-toggle {
     width: 1em !important;
     padding-left: 0.1em !important;
+}
+
+.nav-left {
+    width: $nav-width;
+
+    > .nav-item > a {
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    .nav-icon {
+        width: 70px;
+        height: 70px;
+        font-size: 50px;
+        text-decoration: none !important;
+        color: darkblue;
+        padding: 0.5rem 0.5rem;
+    
+        &:hover {
+            color: blue;
+        }
+
+        img {
+            height: 100%;
+            width: auto;
+            border-radius: 50%;
+        }
+    }
 }
 
 .animated {
@@ -152,4 +108,82 @@ input, textarea {
 
 pre {
     white-space: pre-wrap;
+}
+
+.no-border {
+    border: none;
+    padding-left: 0;
+}
+
+
+.treeview {
+    ul {
+        list-style: none;
+    }
+
+    li {
+        user-select: none;
+
+        .tree-text:hover {
+            color: blue;
+        }
+    }
+
+    .caret {
+        width: 2em;
+        display: inline-block;
+    }
+    
+    .tree-score {
+        padding-right: 50px;
+        display: inline-flex;
+
+        > * {
+            width: 3em;
+            display: inline-block;
+            text-align: right;
+        }
+
+        > .tree-new {
+            color: green;
+        }
+
+        > .tree-leech {
+            color: red;
+        }
+
+        > .tree-due {
+            color: blue;
+        }
+
+        > .tree-action {
+            display: inline-flex;
+            margin-left: 1em;
+            margin-top: 0.3em;
+            height: 0.7em;
+
+            > button {
+                flex: 0;
+                padding-left: 0.3em;
+                padding-right: 0.3em;
+            }
+        }
+        
+        .dot-green {
+            margin-top: -0.2em;
+            height: 0.5em;
+            width: 0.5em;
+            background-color: #28a745;
+            border: 1px solid gray;
+            border-radius: 50%;
+            display: inline-flex;
+        }
+    }
+}
+
+.small-spinner {
+    margin: 0 auto;
+    height: 100px;
+    width: 100px;
+    display: block;
 }

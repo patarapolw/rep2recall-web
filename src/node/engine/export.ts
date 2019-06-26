@@ -2,7 +2,7 @@ import sqlite3 from "better-sqlite3";
 import Database from "./db";
 import { ObjectID } from "bson";
 
-class ExportDb {
+export default class ExportDb {
     public conn: sqlite3.Database;
 
     constructor(filename: string) {
@@ -216,5 +216,50 @@ class ExportDb {
                 });
             }
         })();
+    }
+
+    public async import(userId: ObjectID): Promise<ObjectID[]> {
+        const entries = this.conn.prepare(`
+        SELECT
+            c.id AS id,
+            c.front AS front,
+            c.back AS back,
+            mnemonic,
+            /* tag */
+            srsLevel,
+            nextReview,
+            d.name AS deck,
+            c.created AS created,
+            modified,
+            t.name AS template,
+            t.model AS model,
+            t.front AS tFront,
+            t.back AS tBack,
+            css,
+            js,
+            n.key AS "key",
+            n.data AS data,
+            s.name AS source,
+            s.h AS sourceH,
+            s.created AS sourceCreated,
+            stat
+        FROM card AS c
+        INNER JOIN deck AS d ON d.id = deckId
+        LEFT JOIN template AS t ON t.id = templateId
+        LEFT JOIN note AS n ON n.id = noteId
+        LEFT JOIN source AS s ON s.id = n.sourceId`).all().map((c) => {
+            c.tag = this.conn.prepare(`
+            SELECT name
+            FROM tag
+            INNER JOIN cardTag AS ct ON ct.tagId = tag.id
+            WHERE ct.cardId = ?`).all(c.id).map((t) => t.name);
+            c.data = JSON.parse(c.data || "{}");
+            c.stat = JSON.parse(c.stat || "{}");
+
+            return c;
+        });
+
+        const db = new Database();
+        return await db.insertMany(userId, entries);
     }
 }
