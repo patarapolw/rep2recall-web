@@ -20,7 +20,7 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 5000;
 const MongoStore = connectMongo(session);
-const server = new http.Server(app);
+g.server = new http.Server(app);
 const sessionMiddleware = session({
     secret: process.env.SECRET_KEY!,
     cookie: { maxAge: 60000 },
@@ -32,7 +32,7 @@ const sessionMiddleware = session({
     })
 })
 
-g.io = SocketIO(server).use((socket, next) => {
+g.io = SocketIO(g.server).use((socket, next) => {
     sessionMiddleware(socket.request, {} as any, next);
 });
 
@@ -57,5 +57,5 @@ apiRouter.use("/quiz", quizRouter);
     await mongoClient.connect();
     await new Database().build();
 
-    server.listen(port, () => console.log(`Server running on http://localhost:${port}`));
+    g.server.listen(port, () => console.log(`Server running on http://localhost:${port}`));
 })();

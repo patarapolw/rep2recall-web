@@ -19,12 +19,12 @@ export default function() {
                 }
             }
 
-            if (!req.user) {
+            if (!process.env.DEFAULT_USER && !req.user) {
                 return redirect();
             }
 
             const db = new Database();
-            const email = req.user.emails[0].value;
+            const email = process.env.DEFAULT_USER || req.user.emails[0].value;
             const user = await db.user.findOne({email});
             let userId: ObjectID;
 
@@ -34,7 +34,7 @@ export default function() {
                 userId = (await db.user.insertOne({
                     email,
                     secret: await generateSecret(),
-                    picture: req.user.picture
+                    picture: req.user ? req.user.picture : undefined
                 })).insertedId
             }
 

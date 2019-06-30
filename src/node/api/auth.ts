@@ -77,6 +77,10 @@ router.get("/profile", tokenAuth.optional, (req, res) => {
             name: displayName,
             picture
         });
+    } else if (process.env.DEFAULT_USER) {
+        return res.json({
+            email: process.env.DEFAULT_USER
+        });
     } else {
         return res.json(null);
     }

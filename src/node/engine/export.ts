@@ -1,11 +1,17 @@
 import sqlite3 from "better-sqlite3";
 import Database from "./db";
 import { ObjectID } from "bson";
+import moment from "moment";
+import shortid from "shortid";
+import { IProgress } from "../util";
 
 export default class ExportDb {
     public conn: sqlite3.Database;
+    private cb: (p: IProgress) => void;
 
-    constructor(filename: string) {
+    constructor(filename: string, callback: (p: IProgress) => void) {
+        this.cb = callback;
+
         this.conn = sqlite3(filename);
         this.conn.exec(`
         CREATE TABLE IF NOT EXISTS deck (
@@ -218,48 +224,180 @@ export default class ExportDb {
         })();
     }
 
-    public async import(userId: ObjectID): Promise<ObjectID[]> {
-        const entries = this.conn.prepare(`
-        SELECT
-            c.id AS id,
-            c.front AS front,
-            c.back AS back,
-            mnemonic,
-            /* tag */
-            srsLevel,
-            nextReview,
-            d.name AS deck,
-            c.created AS created,
-            modified,
-            t.name AS template,
-            t.model AS model,
-            t.front AS tFront,
-            t.back AS tBack,
-            css,
-            js,
-            n.key AS "key",
-            n.data AS data,
-            s.name AS source,
-            s.h AS sourceH,
-            s.created AS sourceCreated,
-            stat
-        FROM card AS c
-        INNER JOIN deck AS d ON d.id = deckId
-        LEFT JOIN template AS t ON t.id = templateId
-        LEFT JOIN note AS n ON n.id = noteId
-        LEFT JOIN source AS s ON s.id = n.sourceId`).all().map((c) => {
-            c.tag = this.conn.prepare(`
-            SELECT name
-            FROM tag
-            INNER JOIN cardTag AS ct ON ct.tagId = tag.id
-            WHERE ct.cardId = ?`).all(c.id).map((t) => t.name);
-            c.data = JSON.parse(c.data || "{}");
-            c.stat = JSON.parse(c.stat || "{}");
-
-            return c;
-        });
-
+    public async import(userId: ObjectID) {
         const db = new Database();
-        return await db.insertMany(userId, entries);
+
+        const sourceHToId: {[key: string]: ObjectID} = {};
+        const ss = this.conn.prepare("SELECT name, h, created FROM source").all();
+        let i = 0;
+
+        for (const s of ss) {
+            const {name, h, created} = s;
+            this.cb({
+                text: `Creating source: ${name}`,
+                current: i,
+                max: ss.length
+            });
+
+            sourceHToId[h] = (await db.source.findOneAndUpdate({userId, h}, {$setOnInsert: {
+                userId,
+                name,
+                h,
+                created: moment(created).toDate()
+            }}, {upsert: true, returnOriginal: false})).value!._id!;
+
+            i++;
+        }
+
+        const deckNameToId: {[key: string]: ObjectID} = {};
+        const ds = this.conn.prepare("SELECT name FROM deck").all();
+        i = 0;
+
+        for (const d of ds) {
+            const {name} = d;
+            this.cb({
+                text: `Creating deck: ${d}`,
+                current: i,
+                max: ds.length
+            });
+
+            deckNameToId[name] = (await db.deck.findOneAndUpdate({userId, name}, {$setOnInsert: {
+                userId,
+                name
+            }}, {upsert: true, returnOriginal: false})).value!._id!;
+
+            i++;
+        }
+
+        const templateKeyToId: {[key: string]: ObjectID} = {};
+        const ts = this.conn.prepare("SELECT name, model, front, back, css, js FROM template").all();
+        i = 0
+
+        for (const t of ts) {
+            const {name, model, front, back, css, js} = t;
+            this.cb({
+                text: `Creating template: ${model ? `${model}/` : ""}${name}`,
+                current: i,
+                max: ts.length
+            });
+
+            const key = `${name}\x1f${model}`;
+            templateKeyToId[key] = (await db.template.findOneAndUpdate({userId, name, model}, {$setOnInsert: {
+                userId,
+                name, model, front, back, css, js
+            }}, {upsert: true, returnOriginal: false})).value!._id!;
+
+            i++;
+        }
+
+        const ms = this.conn.prepare("SELECT name, data, h FROM media").all();
+        i = 0
+
+        for (const m of ms) {
+            const {name, data, h} = m;
+            this.cb({
+                text: `Creating media: ${name}`,
+                current: i,
+                max: ms.length
+            })
+
+            try {
+                await db.media.insertOne({
+                    _id: shortid.generate(), 
+                    userId, name, data, h
+                });
+            } catch (e) {}
+
+            i++;
+        }
+
+        const ns = this.conn.prepare(`
+        SELECT
+            key, data,
+            s.h AS sourceH
+        FROM note AS n
+        LEFT JOIN source AS s ON s.id = n.sourceId`).all();
+        const noteKeyToId: {[key: string]: ObjectID} = {};
+        let max = ns.length;
+        i = 0
+        let subList = ns.splice(0, 1000);
+
+        while (subList.length > 0) {
+            this.cb({
+                text: `Inserting notes`,
+                current: i,
+                max
+            });
+
+            const {insertedIds} = await db.note.insertMany(subList.map((n) => {
+                const {key, data, sourceH} = n;
+                return {
+                    userId,
+                    key,
+                    data: data ? JSON.parse(data) : undefined,
+                    sourceId: sourceH ? sourceHToId[sourceH] : undefined
+                };
+            }));
+
+            for (const [index, value] of Object.entries(insertedIds)) {
+                noteKeyToId[subList[index as unknown as number].key] = value;
+            }
+
+            i += 1000;
+            subList = ns.splice(0, 1000);
+        }
+
+        const cs = this.conn.prepare(`
+        SELECT
+            c.id AS id, c.front AS front, c.back AS back, mnemonic, srsLevel, nextReview, created, modified, stat,
+            d.name AS deck,
+            key,
+            t.name AS template, model
+        FROM card AS c
+        LEFT JOIN deck AS d ON d.id = c.deckId
+        LEFT JOIN note AS n ON n.id = c.noteId
+        LEFT JOIN template AS t ON t.id = c.templateId`).all();
+        max = cs.length;
+        i = 0;
+        subList = cs.splice(0, 1000);
+
+        while (subList.length > 0) {
+            this.cb({
+                text: "Inserting cards",
+                current: i,
+                max
+            });
+
+            await db.card.insertMany(subList.map((c) => {
+                const {
+                    id, front, back, mnemonic, srsLevel, nextReview, created, modified, stat,
+                    deck,
+                    key,
+                    template, model
+                } = c;
+
+                const tag = this.conn.prepare(`
+                SELECT name FROM tag AS t
+                INNER JOIN cardTag AS ct ON ct.tagId = t.id
+                INNER JOIN card AS c ON c.id = ct.cardId
+                WHERE c.id = ?`).all(id).map((t) => t.name);
+
+                return {
+                    userId,
+                    front, back, mnemonic, srsLevel,
+                    nextReview: nextReview ? moment(nextReview).toDate() : undefined,
+                    created: moment(created).toDate(),
+                    modified: modified ? moment(modified).toDate() : undefined,
+                    stat: stat ? JSON.parse(stat) : undefined,
+                    deckId: deckNameToId[deck],
+                    noteId: key ? noteKeyToId[key] : undefined,
+                    templateId: template ? templateKeyToId[`${template}\x1f${model}`] : undefined,
+                    tag: tag.length > 0 ? tag : undefined
+                }
+            }))
+
+            i += 1000;
+            subList = cs.splice(0, 1000);
+        }
     }
 }

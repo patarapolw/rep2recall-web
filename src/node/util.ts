@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import { INoteDataSocket } from './engine/db';
+import { inspect } from 'util';
 
 export function generateSecret(): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -13,4 +15,39 @@ export function generateSecret(): Promise<string> {
 
 export function escapeRegExp(s: string) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');  // $& means the whole matched string
+}
+
+export function ankiMustache(s: string, d: INoteDataSocket[] | null, front: string = ""): string {
+    if (d === null) {
+        d = [];
+    }
+
+    s = s.replace(/{{FrontSide}}/g, front.replace(/@html\n/g, ""))
+
+    const keys = new Set<string>();
+    for (const item of d) {
+        keys.add(item.key);
+        s = s.replace(
+            new RegExp(`{{(\\S+:)?${escapeRegExp(item.key)}}}`, "g"),
+            item.value.replace(/^@[^\n]+\n/gs, "")
+        );
+    }
+
+    s = s.replace(/{{#(\S+)}}([^]*){{\1}}/gs, (m, p1, p2) => {
+        return keys.has(p1) ? p2 : "";
+    });
+
+    s = s.replace(/{{[^}]+}}/g, "");
+
+    return s;
+}
+
+export interface IProgress {
+    text: string;
+    current?: number;
+    max?: number;
+}
+
+export function pp(x: any) {
+    console.log(inspect(x, {depth: null, colors: true}));
 }

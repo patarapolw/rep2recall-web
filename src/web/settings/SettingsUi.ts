@@ -27,13 +27,7 @@ import swal from "sweetalert";
     ]).outerHTML
 })
 export default class SettingsUi extends Vue {
-    private mediaFolder = ""
-
-    public mounted() {
-        fetchJSON("/api/media/").then((r) => {
-            this.mediaFolder = r.path;
-        });
-    }
+    private mediaFolder = "";
 
     private async onResetDatabaseClicked() {
         const r = await swal({

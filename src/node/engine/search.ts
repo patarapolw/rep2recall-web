@@ -15,7 +15,6 @@ export class SearchParser {
     private is: Set<string> = new Set();
     private sortBy?: string;
     private desc = false;
-    private cond: any;
     private fields: Set<string> = new Set();
 
     private readonly anyOf = new Set(["template", "front", "mnemonic", "entry", "deck", "tag"]);
@@ -26,13 +25,11 @@ export class SearchParser {
         this.is = new Set();
         this.sortBy = undefined;
         this.desc = false;
-        this.cond = undefined;
         this.fields = new Set();
 
         try {
-            this.parse(q);
             return {
-                cond: this.cond || {},
+                cond: this.parse(q) || {},
                 is: this.is,
                 sortBy: this.sortBy,
                 desc: this.desc,
@@ -53,8 +50,8 @@ export class SearchParser {
             this.parsePartialExpr
         ]) {
             try {
-                return method(q);
-            } catch (e) {};
+                return method.bind(this)(q);
+            } catch (e) {}
         }
 
         throw new Error();
@@ -62,10 +59,10 @@ export class SearchParser {
 
     private removeBrackets(q: string) {
         if (q[0] === "(" && q[q.length - 1] === ")") {
-            return q.substr(1, q.length - 2);
+            return this.parse(q.substr(1, q.length - 2));
         }
 
-        throw new Error();
+        throw new Error("Not bracketed");
     }
 
     private parseSep(sep: string) {
@@ -87,13 +84,13 @@ export class SearchParser {
             if (tokens.length >= 2) {
                 const parsedTokens = tokens.map((t) => this.parse(t)).map((t) => t);
                 if (parsedTokens.length > 1) {
-                    return {[sep === " OR " ? "$or": "$and"]: parsedTokens};
+                    return {[sep === " OR " ? "$or": "$and"]: parsedTokens.map((t) => this.parse(t))};
                 } else {
-                    return parsedTokens[0];
+                    return this.parse(parsedTokens[0]);
                 }
             }
 
-            throw new Error();
+            throw new Error(`Not separated by '${sep}'`);
         }
     }
 
@@ -102,19 +99,19 @@ export class SearchParser {
             const sb = "-sortBy:";
             if (q.startsWith(sb) && q !== sb) {
                 this.sortBy = q.substr(sb.length);
-                return;
+                return {};
             }
 
             return {$not: this.parse(q.substr(1))};
         }
 
-        throw new Error();
+        throw new Error("Not negative");
     }
 
     private parseFullExpr(q: string) {
         const m = /^([\w-]+)(:|~|[><]=?|=)([\w-]+|"[^"]+")$/.exec(q);
         if (m) {
-            let [k, op, v]: any[] = m;
+            let [_, k, op, v]: any[] = m;
 
             if (v.length > 2 && v[0] === '"' && v[v.length - 1] === '"') {
                 v = v.substr(1, v.length - 2);
@@ -140,11 +137,11 @@ export class SearchParser {
                     v = "NULL";
                 } else {
                     this.is.add(v);
-                    return;
+                    return {};
                 }
             } else if (k === "sortBy") {
                 this.sortBy = v;
-                return;
+                return {};
             }
 
             if (op === ":") {
@@ -193,50 +190,43 @@ export class SearchParser {
                 v = {$lt: v};
             }
             
-            this.fitCondToTables(k, v, "$and");
-            return;
+            return this.fitCondToTables(k, v);
         }
 
-        throw new Error();
+        throw new Error("Not full expression");
     }
 
     private parsePartialExpr(q: string) {
         if (q && q.indexOf(":") === -1) {
+            const orCond: any[] = [];
+
             for (const a of this.anyOf) {
                 if (this.isString.has(a)) {
-                    this.fitCondToTables(a, {$regex: escapeRegExp(q)}, "$or");
+                    orCond.push(this.fitCondToTables(a, {$regex: escapeRegExp(q)}));
                 } else {
-                    this.fitCondToTables(a, q, "$or");
+                    orCond.push(this.fitCondToTables(a, q));
                 }
             }
 
-            this.fitCondToTables("@*", {$regex: escapeRegExp(q)}, "$or");
+            orCond.push(this.fitCondToTables("@*", {$regex: escapeRegExp(q)}));
             
-            return;
+            return {$or: orCond};
         }
 
-        throw new Error();
+        throw new Error("Not partial expression");
     }
 
-    private fitCondToTables(k: string, v: any, type: string) {
-        let cond: any;
+    private fitCondToTables(k: string, v: any) {
         this.fields.add(k);
 
         if (k.startsWith("@")) {
-            cond = {data: {$elemMatch: {
+            return {data: {$elemMatch: {
                 key: k.substr(1),
                 value: v
             }}};
-            this.cond = this.cond ? {[type]: [
-                this.cond, cond
-            ]} : cond;
-            return;
         }
 
-        cond = {[k]: v};
-        this.cond = this.cond ? {[type]: [
-            this.cond.card, cond
-        ]} : cond;
+        return {[k]: v};
     }
 }
 

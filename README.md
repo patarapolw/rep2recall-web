@@ -4,10 +4,10 @@ Repeat Until Recall, by a simplified spaced-repetition interval.
 
 ## Features
 
-- Powerful search-bar -- See [/search.md](/search.md)
+- Powerful search-bar -- See [/docs/search.md](/docs/search.md)
 - Anki import
 - Complete editing of any fields
-- Exposed API (at <http://rep2recall.herokuapp.com/api>) -- See [/api.md](/api.md)
+- Exposed API (at <http://rep2recall.herokuapp.com/api>) -- See [/docs/api.md](/docs/api.md)
 
 ## Running in development mode
 
@@ -23,4 +23,4 @@ MONGO_URI=<your-mongo-uri>
 
 ## Download a standalone executable, without having to install MongoDB
 
-See <https://github.com/patarapolw/rep2recall>
+See <https://github.com/patarapolw/rep2recall-sqlite>

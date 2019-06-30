@@ -3,6 +3,7 @@ import needUserId from "../middleware/needUserId";
 import asyncHandler from "express-async-handler";
 import Database from "../engine/db";
 import auth from "../auth/token";
+import { SearchParser } from "../engine/search";
 
 const router = Router();
 
@@ -10,9 +11,14 @@ router.use(auth.optional);
 router.use(needUserId());
 
 router.post("/", asyncHandler(async (req, res) => {
-    const {cond, offset, limit} = req.body;
+    const {q, offset, limit} = req.body;
+    const parser = new SearchParser();
     const db = new Database();
-    return res.json(await db.parseCond(res.locals.userId, cond, {offset, limit}));
+    return res.json(await db.parseCond(res.locals.userId, parser.doParse(q) || {}, {
+        offset, limit,
+        fields: ["deck", "front" , "back", "mnemonic", "tag", "srsLevel", "nextReview", "created", "modified",
+        "data", "tFront", "tBack", "css", "js"]
+    }));
 }));
 
 router.put("/", asyncHandler(async (req, res) => {

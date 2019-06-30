@@ -6,7 +6,7 @@ import Database from "./db";
 import { ObjectID } from "bson";
 import SparkMD5 from "spark-md5";
 import shortid from "shortid";
-import { ankiMustache } from "./util";
+import { ankiMustache, IProgress } from "../util";
 
 export default class Anki {
     private db: sqlite3.Database;
@@ -16,7 +16,7 @@ export default class Anki {
     private dir: string;
     private callback: (res: any) => any;
 
-    constructor(filepath: string, filename: string, callback: (res: any) => any) {
+    constructor(filepath: string, filename: string, callback: (res: IProgress) => void) {
         this.filename = filename;
         this.filepath = filepath;
         this.dir = path.dirname(filepath);
@@ -65,7 +65,7 @@ export default class Anki {
         this.db.exec(`
         CREATE TABLE templates (
             id      INTEGER PRIMARY KEY AUTOINCREMENT,
-            mid     INTEGER REFERENCES model(id),
+            mid     INTEGER REFERENCES models(id),
             name    VARCHAR NOT NULL,
             qfmt    VARCHAR NOT NULL,
             afmt    VARCHAR

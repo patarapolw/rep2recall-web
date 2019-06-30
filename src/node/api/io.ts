@@ -21,47 +21,43 @@ const idToFilename: {[key: string]: string} = {};
 router.post("/import", asyncHandler(async (req, res) => {
     const id = uuid();
     const file = req.files!.file as UploadedFile;
-    if (!fs.existsSync("tmp")) {
-        fs.mkdirSync("tmp");
-    }
-    fs.writeFileSync(path.join("tmp", id), file.data);
+
+    fs.writeFileSync(path.join(g.TMP, id), file.data);
     idToFilename[id] = file.name;
 
     return res.json({id});
 }));
 
 g.io.on("connection", (socket: any) => {
-    socket.on("message", (msg: any) => {
-        const db = new Database();
-        const user = socket.request.session.passport.user;
-
-        db.user.findOne({email: user.emails[0].value}).then((u) => {
+    socket.on("message", async (msg: any) => {
+        try {
+            const db = new Database();
+            const user = socket.request.session.passport.user;
+            const u = await db.user.findOne({email: user.emails[0].value});
             const userId = u!._id!;
 
             const {id, type} = msg;
             if (type === ".apkg") {
-                const anki = new Anki(path.join("tmp", id), idToFilename[id], (p: any) => {
+                const anki = new Anki(path.join(g.TMP, id), idToFilename[id], (p) => {
                     g.io.send(p);
                 });
         
-                anki.export(userId)
-                .then(() => anki.close())
-                .catch((e) => {
-                    g.io.send(JSON.stringify({
-                        error: e.toString()
-                    }));
-                });
+                await anki.export(userId);
+                anki.close();
             } else {
-                const xdb = new ExportDb(path.join("tmp", id));
-                xdb.import(userId)
-                .then(() => xdb.close())
-                .catch((e) => {
-                    g.io.send(JSON.stringify({
-                        error: e.toString()
-                    }));
+                const xdb = new ExportDb(path.join(g.TMP, id), (p) => {
+                    g.io.send(p);
                 });
+                await xdb.import(userId);
+                xdb.close();
             }
-        });
+            g.io.send({});
+        } catch (e) {
+            console.error(e);
+            g.io.send({
+                error: e.toString()
+            });
+        }
     });
 });
 

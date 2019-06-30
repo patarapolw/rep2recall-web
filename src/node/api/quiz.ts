@@ -48,9 +48,11 @@ router.post("/treeview", asyncHandler(async (req, res) => {
 
         if (doLoop && _depth === deck.length - 1) {
             const fullName = deck.join("/");
-            const thisDeckData = data.filter((d) => d.deck === fullName || d.deck.indexOf(`${fullName}/`) === 0);
+            const thisDeckData = data.filter((d) => {
+                return d.deck === fullName || d.deck.indexOf(`${fullName}/`) === 0;
+            });
 
-            data.push({
+            treeData.push({
                 name: deck[_depth],
                 fullName,
                 isOpen: _depth < 2,
@@ -70,6 +72,7 @@ router.post("/treeview", asyncHandler(async (req, res) => {
     const {data} = await db.parseCond(res.locals.userId, cond, {
         fields: ["_id", "srsLevel", "nextReview", "deck"]
     });
+
     const now = new Date();
 
     const deckList: string[] = data.map((d) => d.deck);
@@ -136,7 +139,10 @@ router.post("/", asyncHandler(async (req, res) => {
     }
 
     const db = new Database();
-    const {data} = await db.parseCond(res.locals.userId, {cond: {$and: andCond}}, {
+    const {data} = await db.parseCond(res.locals.userId, {
+        cond: {$and: andCond},
+        fields: new Set(["deck"])
+    }, {
         fields: ["_id"]
     });
 

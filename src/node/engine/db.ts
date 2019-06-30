@@ -2,8 +2,8 @@ import { MongoClient, Db, Collection, ObjectID } from "mongodb";
 import { ISearchParserResult } from "./search";
 import { srsMap, getNextReview, repeatReview } from "./quiz";
 import dotenv from "dotenv";
-import { ankiMustache } from "./util";
 import SparkMD5 from "spark-md5";
+import { ankiMustache, pp } from "../util";
 dotenv.config();
 
 export const mongoClient = new MongoClient(process.env.MONGO_URI!, { useNewUrlParser: true });
@@ -144,17 +144,19 @@ export class Database {
 
         let sourceH: string = "";
         let sourceId: ObjectID;
-        await this.source.insertMany(eValidSource.filter((e, i) => {
-            return eValidSource.map((e1) => e1.sourceH).indexOf(e.sourceH) === i
-        }).map((e) => {
-            sourceH = e.sourceH;
-            return {
-                userId,
-                name: e.source,
-                created: e.sourceCreated || now,
-                h: e.sourceH
-            };
-        }), {ordered: false});
+        try {
+            await this.source.insertMany(eValidSource.filter((e, i) => {
+                return eValidSource.map((e1) => e1.sourceH).indexOf(e.sourceH) === i
+            }).map((e) => {
+                sourceH = e.sourceH;
+                return {
+                    userId,
+                    name: e.source,
+                    created: e.sourceCreated || now,
+                    h: e.sourceH
+                };
+            }), {ordered: false});
+        } catch (e) {}
 
         if (sourceH) {
             sourceId = (await this.source.findOne({h: sourceH}))!._id!
@@ -164,21 +166,23 @@ export class Database {
         const tMap0: {[key: string]: number} = {};
 
         const tMap1 = (await this.template.insertMany(eValidTemplate.map((e, i) => {
-            tMap0[`${e.template}\x1f${e.model}`] = i;
+            const key = `${e.template}\x1f${e.model}`;
+            if (!tMap0[key]) {
+                tMap0[key] = i;
 
-            return {
-                userId,
-                name: e.template,
-                model: e.model,
-                front: e.tFront,
-                back: e.tBack,
-                css: e.css,
-                js: e.js,
-                sourceId
+                return {
+                    userId,
+                    name: e.template,
+                    model: e.model,
+                    front: e.tFront,
+                    back: e.tBack,
+                    css: e.css,
+                    js: e.js,
+                    sourceId
+                }
             }
-        }), {ordered: false})).insertedIds;
-
-        console.log(tMap1);
+            return null;
+        }).filter((e) => e) as IDbTemplate[], {ordered: false})).insertedIds;
 
         const eValidNote = entries.filter((e) => e.data);
         const nMap0: {[key: string]: number} = {};
@@ -195,11 +199,12 @@ export class Database {
         }, {ordered: false}))).insertedIds
 
         const dMap: {[key: string]: ObjectID} = {};
-        const decks = entries.map((e) => e.deck);
-        const deckIds = await Promise.all(decks.map((d) => this.getOrCreateDeck(userId, d)));
-        decks.forEach((d, i) => {
-            dMap[d] = deckIds[i];
-        });
+
+        for (const d of entries.map((e) => e.deck)) {
+            if (!dMap[d]) {
+                dMap[d] = await this.getOrCreateDeck(userId, d);
+            }
+        }
 
         return await Object.values((await this.card.insertMany(entries.map((e) => {
             return {
@@ -223,28 +228,43 @@ export class Database {
         cond: Partial<ISearchParserResult>,
         options: ICondOptions = {}
     ): Promise<IPagedOutput<any>> {
-        if (!options.fields || !cond.cond || !cond.fields) {
+        console.log(cond);
+
+        cond.cond = cond.cond || {};
+
+        if ((!options.fields && !cond.fields) || !options.fields) {
             return {
                 data: [],
                 count: 0
             };
         }
 
+        const allFields = new Set(options.fields || []);
+        for (const f of (cond.fields || [])) {
+            allFields.add(f);
+        }
+
         const proj = {
             _id: 1
         } as {[k: string]: 1 | 0};
 
-        if (["data", "key"].some(cond.fields.has)) {
+        if (["data", "key"].some((k) => allFields.has(k))) {
             proj.noteId = 1;
-        } else if (["deck"].some(cond.fields.has)) {
+        }
+        
+        if (["deck"].some((k) => allFields.has(k))) {
             proj.deckId = 1;
-        } else if (["sCreated", "sH", "source"].some(cond.fields.has)) {
+        }
+        
+        if (["sCreated", "sH", "source"].some((k) => allFields.has(k))) {
             proj.sourceId = 1;
-        } else if (["tFront", "tBack", "template", "model", "css", "js"].some(cond.fields.has)) {
+        }
+        
+        if (["tFront", "tBack", "template", "model", "css", "js"].some((k) => allFields.has(k))) {
             proj.templateId = 1;
         }
 
-        for (const f of cond.fields) {
+        for (const f of allFields) {
             proj[f] = 1;
         }
 
@@ -255,7 +275,9 @@ export class Database {
             outputProj[f] = 1;
         }
 
-        let q = this.card.aggregate<any>([
+        const collectionSize = await this.card.countDocuments();
+
+        const q = await this.card.aggregate<any>([
             {$match: {userId}},
             {$project: proj},
             ...(proj.noteId ? [
@@ -270,7 +292,7 @@ export class Database {
                     preserveNullAndEmptyArrays: true
                 }}
             ] : []),
-            ...(proj.deck ? [
+            ...(proj.deckId ? [
                 {$lookup: {
                     from: "deck",
                     localField: "deckId",
@@ -307,45 +329,105 @@ export class Database {
                 }}
             ] : []),
             {$project: {
-                ...proj,
-                deck: "$d.name",
-                template: "$t.name",
-                model: "$t.model",
-                tFront: "$t.front",
-                tBack: "$t.back",
-                css: "$t.css",
-                js: "$t.js",
-                key: "$n.key",
-                data: "$n.data",
-                source: "$s.name",
-                sH: "$s.h",
-                sCreated: "$.created"
+                ...outputProj,
+                id: {$toString: "$_id"},
+                deck: proj.deckId ? "$d.name" : undefined,
+                ...(proj.templateId ? {
+                    template: "$t.name",
+                    model: "$t.model",
+                    tFront: "$t.front",
+                    tBack: "$t.back",
+                    css: "$t.css",
+                    js: "$t.js",
+                } : {}),
+                ...(proj.noteId ? {
+                    key: "$n.key",
+                    data: "$n.data",
+                } : {}),
+                ...(proj.sourceId ? {
+                    source: "$s.name",
+                    sH: "$s.h",
+                    sCreated: "$.created"
+                } : {})
             }},
             {$match: cond.cond},
-            {$project: {
-                ...proj,
-                sortBy: (() => {
-                    let sortBy = options.sortBy || "deck";
-                    if (sortBy.startsWith("@")) {
-                        return {data: {$elemMatch: {key: sortBy.substr(1)}}};
-                    }
-                    return sortBy;
-                })()
-            }},
-            {$sort: {sortBy: options.desc ? -1 : 1}},
-            {$project: outputProj}
-        ], {allowDiskUse: true});
+            {$facet: {
+                data: (() => {
+                    let dataFacet: any[] = [];
 
-        const count = (await q.clone().project({_id: 1}).toArray()).length;
-        q = q.skip(options.offset || 0);
-        
-        if (options.limit) {
-            q = q.limit(options.limit)
-        }
+                    if (cond.is) {
+                        if (cond.is.has("distinct")) {
+                            dataFacet.push(...[
+                                {$sample: {size: collectionSize}},
+                                {$group: {_id: "$key", numberOfKeys: {$sum: 1}}},
+                                {$match: {$or: [
+                                    {numberOfKeys: 1},
+                                    {key: {$exists: false}},
+                                    {key: null}
+                                ]}}
+                            ]);
+                        }
+                        
+                        if (cond.is.has("duplicate")) {
+                            dataFacet.push(...[
+                                {$sample: {size: collectionSize}},
+                                {$group: {_id: "$key", numberOfKeys: {$sum: 1}}},
+                                {$match: {numberOfKeys: {$gt: 1}}}
+                            ]);
+                        }
+                        
+                        if (cond.is.has("random")) {
+                            options.sortBy = "random"
+                        }
+                    }
+
+                    if (options.sortBy && options.sortBy === "random") {
+                        dataFacet.push({$sample: {size: options.limit || collectionSize}});
+                    } else {
+                        if (options.sortBy) {
+                            dataFacet.push(...[
+                                {$project: {
+                                    ...outputProj,
+                                    sortBy: (() => {
+                                        let sortBy = options.sortBy || "deck";
+                                        if (sortBy.startsWith("@")) {
+                                            return {data: {$elemMatch: {key: sortBy.substr(1)}}};
+                                        }
+                                        return sortBy;
+                                    })()
+                                }},
+                                {$sort: {sortBy: options.desc ? -1 : 1}}
+                            ]);
+                        }
+
+                        if (options.offset) {
+                            dataFacet.push({$skip: options.offset});
+                        }
+
+                        if (options.limit) {
+                            dataFacet.push({$limit: options.limit})
+                        }
+                    }
+
+                    dataFacet.push({$project: {
+                        ...outputProj,
+                        id: "$id"
+                    }});
+
+                    return dataFacet;
+                })(),
+                count: [
+                    {$count: "count"}
+                ]
+            }}
+            // @ts-ignore
+        ], {allowDiskUsage: true}).toArray();
+
+        pp(q);
 
         return {
-            data: await q.toArray(),
-            count
+            data: q[0].data,
+            count: q[0].count[0].count
         };
     }
 
@@ -381,25 +463,21 @@ export class Database {
             cond: {_id: new ObjectID(cardId)}
         }, {
             limit: 1,
-            fields: ["front", "back", "mnemonic", "tFront", "tBack", "data"]
+            fields: ["front", "back", "mnemonic", "tFront", "tBack", "data", "css", "js"]
         });
 
         const c = r.data[0];
         const {tFront, tBack, data} = c;
         
         if (/@md5\n/.test(c.front)) {
-            c.front = ankiMustache(tFront, data);
+            c.front = ankiMustache(tFront || "", data);
         }
 
         if (/@md5\n/.test(c.back)) {
             c.back = ankiMustache(tBack || "", data, c.front);
         }
 
-        return {
-            front: c.front,
-            back: c.back,
-            mnemonic: c.mnemonic
-        }
+        return c;
     }
 
     public async markRight(userId: ObjectID, cardId?: ObjectID, cardData?: {[k: string]: any}): Promise<ObjectID | null> {

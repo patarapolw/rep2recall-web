@@ -101,7 +101,7 @@ const app = new Vue({
             h("b-nav-item", { 
                 style: {"margin-top": "auto"},
                 attrs: {
-                    "v-on:click": "profile ? logout() : login()"
+                    "v-on:click": "profile ? (profile.picture ? logout() : undefined) : login()"
                 }
             }, [
                 h("i.fas.fa-user.nav-icon", {attrs: {
@@ -110,14 +110,20 @@ const app = new Vue({
                     title: "Click here to Login"
                 }}),
                 h(".nav-icon", {attrs: {
-                    "v-if": "profile",
+                    "v-else-if": "profile && profile.picture",
                     "v-b-tooltip.hover": "",
                     "title": "Click here to Logout"
                 }}, [
                     h("img", {attrs: {
                         ":src": "profile.picture"
                     }})
-                ])
+                ]),
+                h("i.fas.fa-user-lock.nav-icon", {attrs: {
+                    "v-else": "",
+                    "v-b-tooltip.hover": "",
+                    ":title": "profile.email",
+                    "style": "margin-left: -0.1em;"
+                }})
             ]),
         ]),
         h(".separate-vertical"),
