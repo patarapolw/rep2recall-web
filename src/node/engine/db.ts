@@ -108,7 +108,7 @@ export class Database {
     private db: Db;
 
     constructor() {
-        this.db = mongoClient.db("data");
+        this.db = mongoClient.db("rep2recall");
 
         this.user = this.db.collection("user");
 
@@ -228,8 +228,7 @@ export class Database {
         cond: Partial<ISearchParserResult>,
         options: ICondOptions = {}
     ): Promise<IPagedOutput<any>> {
-        console.log(cond);
-
+        
         cond.cond = cond.cond || {};
 
         if ((!options.fields && !cond.fields) || !options.fields) {
@@ -244,9 +243,7 @@ export class Database {
             allFields.add(f);
         }
 
-        const proj = {
-            _id: 1
-        } as {[k: string]: 1 | 0};
+        const proj = {} as {[k: string]: 1 | 0};
 
         if (["data", "key"].some((k) => allFields.has(k))) {
             proj.noteId = 1;
@@ -268,7 +265,7 @@ export class Database {
             proj[f] = 1;
         }
 
-        const outputProj = {} as {[k: string]: 1 | 0};
+        const outputProj = {id: 1} as {[k: string]: 1 | 0};
 
         for (const f of options.fields) {
             proj[f] = 1;
@@ -351,35 +348,58 @@ export class Database {
                 } : {})
             }},
             {$match: cond.cond},
+            ...(() => {
+                let filter: any[] = [];
+                const getGroupStmt = (k0: string) => {
+                    return {$group: {_id: `$${k0}`, repeat: {$sum: 1}, data: {$addToSet: (() => {
+                        const newProj = {} as any;
+    
+                        for (const k of Object.keys(outputProj)) {
+                            newProj[k] = `$${k}`;
+                        }
+    
+                        return newProj;
+                    })() }}};
+                }
+                const projStmt = (() => {
+                    const newProj = {} as any;
+
+                    for (const k of Object.keys(outputProj)) {
+                        newProj[k] = `$data.${k}`;
+                    }
+
+                    return newProj;
+                })();
+
+                if (cond.is) {
+                    if (cond.is.has("distinct")) {
+                        filter.push(...[
+                            {$sample: {size: collectionSize}},
+                            getGroupStmt("key"),
+                            {$project: {data: {$arrayElemAt: ["$data", 0]}}},
+                            {$project: projStmt}
+                        ]);
+                    }
+                    
+                    if (cond.is.has("duplicate")) {
+                        filter.push(...[
+                            getGroupStmt("front"),
+                            {$match: {repeat: {$gt: 1}}},
+                            {$unwind: "$data"},
+                            {$project: projStmt}
+                        ]);
+                    }
+                    
+                    if (cond.is.has("random")) {
+                        options.sortBy = "random"
+                    }
+                }
+
+                return filter;
+            })(),
             {$facet: {
                 data: (() => {
-                    let dataFacet: any[] = [];
-
-                    if (cond.is) {
-                        if (cond.is.has("distinct")) {
-                            dataFacet.push(...[
-                                {$sample: {size: collectionSize}},
-                                {$group: {_id: "$key", numberOfKeys: {$sum: 1}}},
-                                {$match: {$or: [
-                                    {numberOfKeys: 1},
-                                    {key: {$exists: false}},
-                                    {key: null}
-                                ]}}
-                            ]);
-                        }
-                        
-                        if (cond.is.has("duplicate")) {
-                            dataFacet.push(...[
-                                {$sample: {size: collectionSize}},
-                                {$group: {_id: "$key", numberOfKeys: {$sum: 1}}},
-                                {$match: {numberOfKeys: {$gt: 1}}}
-                            ]);
-                        }
-                        
-                        if (cond.is.has("random")) {
-                            options.sortBy = "random"
-                        }
-                    }
+                    let dataFacet: any[] = [{$match: {}}];
 
                     if (options.sortBy && options.sortBy === "random") {
                         dataFacet.push({$sample: {size: options.limit || collectionSize}});
@@ -389,11 +409,11 @@ export class Database {
                                 {$project: {
                                     ...outputProj,
                                     sortBy: (() => {
-                                        let sortBy = options.sortBy || "deck";
+                                        let sortBy = options.sortBy;
                                         if (sortBy.startsWith("@")) {
                                             return {data: {$elemMatch: {key: sortBy.substr(1)}}};
                                         }
-                                        return sortBy;
+                                        return `$${sortBy}`;
                                     })()
                                 }},
                                 {$sort: {sortBy: options.desc ? -1 : 1}}
@@ -410,8 +430,7 @@ export class Database {
                     }
 
                     dataFacet.push({$project: {
-                        ...outputProj,
-                        id: "$id"
+                        ...outputProj
                     }});
 
                     return dataFacet;
@@ -420,14 +439,11 @@ export class Database {
                     {$count: "count"}
                 ]
             }}
-            // @ts-ignore
-        ], {allowDiskUsage: true}).toArray();
-
-        pp(q);
+        ], {allowDiskUse: true}).toArray();
 
         return {
             data: q[0].data,
-            count: q[0].count[0].count
+            count: q[0].count.length > 0 ? q[0].count[0].count : 0
         };
     }
 

@@ -11,11 +11,11 @@ router.use(auth.optional);
 router.use(needUserId());
 
 router.post("/", asyncHandler(async (req, res) => {
-    const {q, offset, limit} = req.body;
+    const {q, offset, limit, sortBy, desc} = req.body;
     const parser = new SearchParser();
     const db = new Database();
     return res.json(await db.parseCond(res.locals.userId, parser.doParse(q) || {}, {
-        offset, limit,
+        offset, limit, sortBy, desc,
         fields: ["deck", "front" , "back", "mnemonic", "tag", "srsLevel", "nextReview", "created", "modified",
         "data", "tFront", "tBack", "css", "js"]
     }));

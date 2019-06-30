@@ -10,6 +10,7 @@ import fs from "fs";
 import Anki from "../engine/anki";
 import { g } from "../config";
 import ExportDb from "../engine/export";
+import { pp } from "../util";
 
 const router = Router();
 router.use(fileUpload());
@@ -32,8 +33,8 @@ g.io.on("connection", (socket: any) => {
     socket.on("message", async (msg: any) => {
         try {
             const db = new Database();
-            const user = socket.request.session.passport.user;
-            const u = await db.user.findOne({email: user.emails[0].value});
+            const email = process.env.DEFAULT_USER || socket.request.session.passport.user.emails[0].value;
+            const u = await db.user.findOne({email});
             const userId = u!._id!;
 
             const {id, type} = msg;
