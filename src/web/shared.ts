@@ -1,22 +1,21 @@
-import { IColumn } from "./DbEditor";
+export interface IColumn {
+    name: string;
+    width?: number;
+    label: string;
+    type?: "string" | "html" | "number" | "datetime" | "tag" | "multiline";
+    required?: boolean;
+}
 
-export const globalState = {
-    deckApi: "/deck/",
-    quizApi: "/quiz/",
-    templateApi: "/template/",
-    cardEditorApi: "/card/editor/",
-    cols: [
-        {name: "deck", width: 150, type: "one-line", required: true},
-        {name: "template", width: 150, type: "one-line"},
-        {name: "front", width: 400, type: "markdown", required: true},
-        {name: "back", width: 400, type: "markdown"},
-        {name: "tag", width: 150, type: "list", separator: " "},
-        {name: "note", width: 300, type: "markdown"},
-        {name: "srsLevel", width: 150, type: "number", label: "SRS Level", newEntry: false},
-        {name: "nextReview", width: 200, type: "datetime", label: "Next Review", newEntry: false}
-    ] as IColumn[],
-    dateFormat: "Y-M-d H:i",
-    entryEditor: {} as any
-};
+export const Columns: IColumn[] = [
+    {name: "deck", width: 150, type: "string", required: true, label: "Deck"},
+    {name: "front", width: 400, type: "html", required: true, label: "Front"},
+    {name: "back", width: 400, type: "html", label: "Back"},
+    {name: "mnemonic", width: 300, type: "html", label: "Mnemonic"},
+    {name: "tag", width: 150, type: "tag", label: "Tags"},
+    {name: "srsLevel", width: 150, type: "number", label: "SRS Level"},
+    {name: "nextReview", width: 250, type: "datetime", label: "Next Review"},
+    {name: "created", width: 250, type: "datetime", label: "Created"},
+    {name: "modified", width: 250, type: "datetime", label: "Modified"}
+];
 
-export default globalState;
+export const DateFormat = "Y-M-d H:i";

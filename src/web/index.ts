@@ -1,148 +1,163 @@
 import Vue from "vue";
 import VueRouter from "vue-router";
-import Counter from "./DbEditor/component/Counter";
-import SearchBar from "./DbEditor/component/SearchBar";
 import "./index.scss";
-import Quiz from "./Quiz/Quiz";
 import BootstrapVue from "bootstrap-vue";
 import "bootstrap";
-import CardEditor from "./DbEditor/CardEditor";
-import ImportExport from "./ImportExport";
+import $ from "jquery";
+import h from "hyperscript";
+import QuizUi from "./quiz/QuizUi";
 import "./contextmenu";
-import Front from "./Front";
-import { fetchJSON } from "./util";
+import EditorUi from "./editor/EditorUi";
+import { slowClick } from "./util/util";
+import ImportUi from "./import/ImportUi";
+import SettingsUi from "./settings/SettingsUi";
+import swal from "sweetalert";
+
+// @ts-ignore
+import VueCodemirror from "vue-codemirror";
+import "codemirror/addon/display/autorefresh";
+import "codemirror/mode/markdown/markdown";
+import "codemirror/mode/css/css";
+import "codemirror/mode/javascript/javascript";
+import "codemirror/addon/edit/closebrackets";
+
+$(() => {
+    // @ts-ignore
+    $('.tooltip-enabled').tooltip({trigger: "hover"});
+    $(document.body).on("mousedown", "button", (evt) => {
+        const $this = $(evt.target);
+        $this.prop("disabled", true);
+        slowClick($this);
+    })
+});
+
 
 Vue.use(VueRouter);
 Vue.use(BootstrapVue);
+Vue.use(VueCodemirror, {
+    options: {
+        lineNumbers: true,
+        lineWrapping: true,
+        autoRefresh: true,
+        theme: "base16-light",
+        autoCloseBrackets: true
+    }
+});
 
 const router = new VueRouter({
     routes: [
-        {name: "default", path: "/", component: Front},
-        {name: "quiz", path: "/quiz", component: Quiz},
-        {name: "cardEditor", path: "/editor", component: CardEditor},
-        {name: "importExport", path: "/importExport", component: ImportExport}
+        {path: "/", component: QuizUi},
+        {path: "/quiz", component: QuizUi},
+        {path: "/editor", component: EditorUi},
+        {path: "/import", component: ImportUi},
+        {path: "/settings", component: SettingsUi}
     ]
 });
 
 const app = new Vue({
     router,
-    components: {Counter, SearchBar},
-    render(m) {
-        return m("div", {class: ["h-100"]}, [
-            m("nav", {
-                class: ["navbar", "navbar-expand-lg", "navbar-light", "bg-light"]
-            }, [
-                m("a", {
-                    class: ["navbar-brand"],
-                    domProps: {href: "#"}
-                }, "Rep2Recall"),
-                m("button", {
-                    class: ["navbar-toggler"],
+    template: h(".row.stretched", [
+        h("b-nav.nav-left", { attrs: { "vertical": "" } }, [
+            h("b-nav-item", { attrs: { to: "/quiz" } }, [
+                h("i.far.fa-question-circle.nav-icon", {
                     attrs: {
-                        "data-target": "#navbarSupportedContent",
-                        "data-toggle": "collapse",
-                        "type": "button"
+                        "v-b-tooltip.hover": "",
+                        title: "Quiz"
                     }
-                }, [
-                    m("span", {class: "navbar-toggler-icon"})
-                ]),
-                m("div", {
-                    class: ["collapse", "navbar-collapse"],
-                    attrs: {id: "navbarSupportedContent"}
-                }, [
-                    m("ul", {
-                        class: ["navbar-nav", "mr-auto"]
-                    }, [
-                        m("li", {
-                            attrs: {
-                                disabled: !this.displayName
-                            },
-                            class: ["nav-item", this.$route.path === "/quiz" ? "active" : ""]
-                        }, [
-                            m("router-link", {
-                                class: ["nav-link"],
-                                props: {to: "/quiz", event: !this.displayName ? "" : "click"}
-                            }, "Quiz")
-                        ]),
-                        m("li", {
-                            attrs: {
-                                disabled: !this.displayName
-                            },
-                            class: ["nav-item", this.$route.path === "/editor" ? "active" : ""]
-                        }, [
-                            m("router-link", {
-                                class: ["nav-link"],
-                                props: {to: "/editor", event: !this.displayName ? "" : "click"}
-                            }, "Editor")
-                        ]),
-                        m("li", {
-                            attrs: {
-                                disabled: !this.displayName
-                            },
-                            class: ["nav-item", this.$route.path === "/importExport" ? "active" : ""]
-                        }, [
-                            m("router-link", {
-                                class: ["nav-link"],
-                                props: {to: "/importExport", event: !this.displayName ? "" : "click"}
-                            }, "Import")
-                        ]),
-                        m("li", {
-                            class: ["nav-item"]
-                        }, [
-                            m("a", {
-                                class: ["nav-link"],
-                                domProps: {href: "https://github.com/patarapolw/rep2recall-web"},
-                                attrs: {target: "_blank"}
-                            }, "About")
-                        ]),
-                        m(Counter)
-                    ]),
-                    m("ul", {
-                        class: ["navbar-nav"]
-                    }, [
-                        m(SearchBar),
-                        m("button", {
-                            class: ["btn", "form-control", "nav-item", "mt-1", "mr-2",
-                            this.displayName ? "btn-outline-danger" : "btn-outline-success"],
-                            style: {display: typeof this.displayName === "string" ? "none" : "block"},
-                            on: {click: () => location.replace(this.displayName ? "/logout" : "/login")}
-                        }, this.displayName ? "Logout" : "Login")
-                    ])
-                ])
+                })
             ]),
-            m("router-view")
-        ]);
-    },
-    data: {
-        displayName: null as any
-    },
-    methods: {
-        async getLoginStatus() {
-            const r = (await fetchJSON("/loginStatus"));
-            if (typeof r === "object" || typeof r === "string") {
-                this.displayName = r.displayName || r;
-                if (this.$route.path === "/") {
-                    router.push("/quiz");
+            h("b-nav-item", { attrs: { to: "/editor" } }, [
+                h("i.far.fa-edit.nav-icon", {
+                    attrs: {
+                        "v-b-tooltip.hover": "",
+                        title: "Editor"
+                    }
+                }),
+            ]),
+            h("b-nav-item", { attrs: { to: "/import" } }, [
+                h("i.fas.fa-file-import.nav-icon", {
+                    attrs: {
+                        "v-b-tooltip.hover": "",
+                        title: "Import"
+                    }
+                }),
+            ]),
+            h("b-nav-item", { attrs: { to: "/settings" } }, [
+                h("i.fas.fa-cog.nav-icon", {
+                    attrs: {
+                        "v-b-tooltip.hover": "",
+                        title: "Settings"
+                    }
+                }),
+            ]),
+            h("b-nav-item", { attrs: { href: "https://github.com/patarapolw/rep2recall-web", target: "_blank" } }, [
+                h("i.fab.fa-github.nav-icon", {
+                    attrs: {
+                        "v-b-tooltip.hover": "",
+                        title: "GitHub"
+                    }
+                })
+            ]),
+            h("b-nav-item", { 
+                style: {"margin-top": "auto"},
+                attrs: {
+                    "v-on:click": "profile ? (profile.picture ? logout() : undefined) : login()"
                 }
-            } else {
-                this.displayName = null;
-                if (this.$route.path !== "/") {
-                    router.push("/");
-                }
-            }
-        },
-        handleRouteChange(route: any) {
-            if (this.displayName) {
-                this.$router.push(route);
-            }
+            }, [
+                h("i.fas.fa-user.nav-icon", {attrs: {
+                    "v-if": "!profile",
+                    "v-b-tooltip.hover": "",
+                    title: "Click here to Login"
+                }}),
+                h(".nav-icon", {attrs: {
+                    "v-else-if": "profile && profile.picture",
+                    "v-b-tooltip.hover": "",
+                    "title": "Click here to Logout"
+                }}, [
+                    h("img", {attrs: {
+                        ":src": "profile.picture"
+                    }})
+                ]),
+                h("i.fas.fa-user-lock.nav-icon", {attrs: {
+                    "v-else": "",
+                    "v-b-tooltip.hover": "",
+                    ":title": "profile.email",
+                    "style": "margin-left: -0.1em;"
+                }})
+            ]),
+        ]),
+        h(".separate-vertical"),
+        h(".body", { style: { overflow: "scroll" } }, [
+            h("router-view")
+        ])
+    ]).outerHTML,
+    data() {
+        return {
+            profile: null as any
+        };
+    },
+    async created() {
+        try {
+            this.profile = await (await fetch("/api/auth/profile")).json()
+        } catch (e) {
+            this.profile = null;
+        }
+
+        if (!this.profile) {
+            swal({
+                text: "Please login",
+                icon: "info"
+            }).then(() => {
+                location.href = "/api/auth/login";
+            });
         }
     },
-    created() {
-        // @ts-ignore
-        this.getLoginStatus();
-    },
-    beforeUpdate() {
-        // @ts-ignore
-        this.getLoginStatus();
+    methods: {
+        login() { 
+            location.href = "/api/auth/login";
+         },
+        logout() {
+            location.href = "/api/auth/logout";
+        }
     }
 }).$mount("#App");

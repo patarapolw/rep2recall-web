@@ -1,95 +1,189 @@
 @import "~bootstrap/scss/bootstrap.scss";
 @import "~bootstrap-vue/src/index.scss";
 @import "~flatpickr/dist/flatpickr.min";
+@import "~@fortawesome/fontawesome-free/scss/fontawesome.scss";
+$fa-font-path: "~@fortawesome/fontawesome-free/webfonts";
+@import "~@fortawesome/fontawesome-free/scss/regular.scss";
+@import "~@fortawesome/fontawesome-free/scss/solid.scss";
+@import "~@fortawesome/fontawesome-free/scss/brands.scss";
+@import "~toastr/toastr.scss";
+@import "~codemirror/lib/codemirror";
+@import "~codemirror/theme/base16-light";
 
-html, body, #App {
+$nav-width: 70px;
+
+.stretched {
+    margin: 0;
+    padding: 0;
+    width: 100%;
     height: 100%;
 }
 
-.h-0 {
-    height: 0px !important;
-    margin: 0;
-    padding: 0;
-    outline: 0;
+.overflow-scroll {
+    overflow: scroll;
 }
 
-.page-control {
-    white-space: nowrap;
+.separate-vertical {
+    position: relative;
+    background-color: lightgray;
+    height: 100%;
+    width: 1px;
+    top: 0;
 }
 
-.quizarea img {
-    max-width: 700px;
-    max-height: 500px;
+.body {
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    left: $nav-width + 1px;
+    top: 0;
+    overflow: scroll;
 }
 
-table img {
-    max-width: 400px;
+button.dropdown-toggle {
+    width: 10px;
+    min-width: 10px;
+    padding-left: 0px;
 }
 
-img {
-    max-width: 100%;
+.dropdown-toggle {
+    width: 1em !important;
+    padding-left: 0.1em !important;
 }
 
-textarea {
-    font-family: 'Courier New', Courier, monospace;
-    resize: none;
+.nav-left {
+    width: $nav-width;
+
+    > .nav-item > a {
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    .nav-icon {
+        width: 70px;
+        height: 70px;
+        font-size: 50px;
+        text-decoration: none !important;
+        color: darkblue;
+        padding: 0.5rem 0.5rem;
+    
+        &:hover {
+            color: blue;
+        }
+
+        img {
+            height: 100%;
+            width: auto;
+            border-radius: 50%;
+        }
+    }
+}
+
+.animated {
+    animation: simple-animation 0.8s linear;
+
+    @keyframes simple-animation {
+        99% {
+            opacity: 0.5;
+            transform: scale(1.1);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+}
+
+.btn:active {
+    transition: all 0.5s ease-in;
+    opacity: 0.5;
+    transform: scale(1.1);
+}
+
+input, textarea {
+    &.form-control {
+        background-color: white !important;
+    }
 }
 
 pre {
     white-space: pre-wrap;
 }
 
-.animate {
-    transition: all 0.4s linear;
+.no-border {
+    border: none;
+    padding-left: 0;
 }
 
-.navbar-nav > li {
-    display: inline-block;
+
+.treeview {
+    ul {
+        list-style: none;
+    }
+
+    li {
+        user-select: none;
+
+        .tree-text:hover {
+            color: blue;
+        }
+    }
+
+    .caret {
+        width: 2em;
+        display: inline-block;
+    }
+    
+    .tree-score {
+        padding-right: 50px;
+        display: inline-flex;
+
+        > * {
+            width: 3em;
+            display: inline-block;
+            text-align: right;
+        }
+
+        > .tree-new {
+            color: green;
+        }
+
+        > .tree-leech {
+            color: red;
+        }
+
+        > .tree-due {
+            color: blue;
+        }
+
+        > .tree-action {
+            display: inline-flex;
+            margin-left: 1em;
+            margin-top: 0.3em;
+            height: 0.7em;
+
+            > button {
+                flex: 0;
+                padding-left: 0.3em;
+                padding-right: 0.3em;
+            }
+        }
+        
+        .dot-green {
+            margin-top: -0.2em;
+            height: 0.5em;
+            width: 0.5em;
+            background-color: #28a745;
+            border: 1px solid gray;
+            border-radius: 50%;
+            display: inline-flex;
+        }
+    }
 }
 
-.clear, .clear * {
-    background-color: rgba($color: #fff, $alpha: 0);
-    border: 0px;
-}
-
-.cell-wrapper {
-    max-height: 200px;
-    overflow: scroll;
-}
-
-.cell-editor-md {
-    height: 500px !important;
-}
-
-.cell-editor-text textarea {
-    width: 100%;
-    height: 100%;
-}
-
-.modal-content * {
-    pointer-events: auto;
-}
-
-table {
-    table-layout: fixed;
-}
-
-* {
-    word-break: break-word;
-}
-
-.flatpickr-input {
-    background: #fff !important;
-}
-
-.crop {
-    overflow: hidden;
-}
-
-input.form-control:read-only, textarea.form-control:read-only {
-    background-color: #fff;
-}
-
-.hidden {
-    display: none;
+.small-spinner {
+    margin: 0 auto;
+    height: 100px;
+    width: 100px;
+    display: block;
 }

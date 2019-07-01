@@ -1,28 +1,22 @@
 const { web } = require("./webpack.common");
-const waitOn = require("wait-on");
-const open = require("open");
+const path = require("path");
 const dotenv = require("dotenv");
 dotenv.config();
-
-let isFirstEmit = true;
-const port = process.env.PORT || 5000;
 
 module.exports = {
     mode: "development",
     devtool: "inline-source-map",
     ...web,
-    plugins: [
-        {
-            apply: (compiler) => {
-                compiler.hooks.compile.tap("open-browser", () => {
-                    if (isFirstEmit) {
-                        waitOn({ resources: [`http://localhost:${port}`] }).then(() => {
-                            open(`http://localhost:${port}`)
-                            isFirstEmit = false;
-                        });
-                    }
-                })
+    devServer: {
+        open: true,
+        contentBase: path.resolve(__dirname, "public"),
+        proxy: {
+            "/api": `http://localhost:${process.env.PORT || 7000}`,
+            "/socket.io": {
+                target: `http://localhost:${process.env.PORT || 7000}`,
+                ws: true
             }
-        }
-    ]
+        },
+        port: process.env.DEV_SERVER_PORT || 24208
+    }
 };
