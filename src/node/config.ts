@@ -1,4 +1,5 @@
 import fs from "fs";
+import rimraf from "rimraf";
 
 export const g: any = {
     TMP: "tmp"
@@ -11,7 +12,7 @@ if (!fs.existsSync(g.TMP)) {
 function cleanup() {
     try {
         g.server.close();
-        fs.unlinkSync(g.TMP);
+        rimraf.sync(g.TMP);
     } catch (e) {}
 }
 

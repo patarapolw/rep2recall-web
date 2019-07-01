@@ -26,11 +26,17 @@ export function ankiMustache(s: string, d: INoteDataSocket[] | null, front: stri
 
     const keys = new Set<string>();
     for (const item of d) {
-        keys.add(item.key);
-        s = s.replace(
-            new RegExp(`{{(\\S+:)?${escapeRegExp(item.key)}}}`, "g"),
-            item.value.replace(/^@[^\n]+\n/gs, "")
-        );
+        const k = item.key;
+        const v = item.value;
+
+        keys.add(k);
+
+        if (typeof v === "string") {
+            s = s.replace(
+                new RegExp(`{{(\\S+:)?${escapeRegExp(k)}}}`, "g"),
+                v.replace(/^@[^\n]+\n/gs, "")
+            );
+        }
     }
 
     s = s.replace(/{{#(\S+)}}([^]*){{\1}}/gs, (m, p1, p2) => {

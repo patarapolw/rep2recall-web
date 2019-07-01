@@ -4,6 +4,8 @@ import { srsMap, getNextReview, repeatReview } from "./quiz";
 import dotenv from "dotenv";
 import SparkMD5 from "spark-md5";
 import { ankiMustache, pp } from "../util";
+import moment from "moment";
+import uuid from "uuid/v4";
 dotenv.config();
 
 export const mongoClient = new MongoClient(process.env.MONGO_URI!, { useNewUrlParser: true });
@@ -43,7 +45,7 @@ export interface IDbTemplate {
 
 export interface INoteDataSocket {
     key: string;
-    value: string;
+    value: any;
 }
 
 export interface IDbNote {
@@ -405,19 +407,22 @@ export class Database {
                         dataFacet.push({$sample: {size: options.limit || collectionSize}});
                     } else {
                         if (options.sortBy) {
-                            dataFacet.push(...[
-                                {$project: {
-                                    ...outputProj,
-                                    sortBy: (() => {
-                                        let sortBy = options.sortBy;
-                                        if (sortBy.startsWith("@")) {
-                                            return {data: {$elemMatch: {key: sortBy.substr(1)}}};
-                                        }
-                                        return `$${sortBy}`;
-                                    })()
-                                }},
-                                {$sort: {sortBy: options.desc ? -1 : 1}}
-                            ]);
+                            if (options.sortBy[0] === "@") {
+                                const key = options.sortBy.substr(1);
+
+                                dataFacet.push(...[
+                                    {$project: {...outputProj, dKey: {$cond: [
+                                        {$in: [key, "$data.key"]},
+                                        "$data",
+                                        [{key}]
+                                    ]}}},
+                                    {$unwind: "$dKey"},
+                                    {$match: {"dKey.key": key}},
+                                    {$sort: {"dKey.value": options.desc ? -1 : 1}}
+                                ])
+                            } else {
+                                dataFacet.push({$sort: {[options.sortBy]: options.desc ? -1 : 1}});
+                            }
                         }
 
                         if (options.offset) {
@@ -447,24 +452,77 @@ export class Database {
         };
     }
 
-    public async updateMany(ids: ObjectID[], u: any) {
-        return (await this.card.updateMany({_id: {$in: ids}}, {
-            $set: {
-                modified: new Date(),
-                ...u
-            }
-        })).result;
+    public async updateMany(userId: ObjectID, ids: ObjectID[], u: any) {
+        return await Promise.all(ids.map((id) => this.updateOne(userId, id, u)));
     }
 
-    public async addTags(ids: string[], tags: string[]) {
-        return (await this.card.updateMany({_id: {$in: ids.map((id) => new ObjectID(id))}}, {
+    private async updateOne(userId: ObjectID, cardId: ObjectID, u: any) {
+        u = await this.transformCreateOrUpdate(userId, cardId, u);
+        for (const [k, v] of Object.entries(u)) {
+            if (k === "deck") {
+                const deckId = await this.getOrCreateDeck(userId, v as string);
+                await this.card.findOneAndUpdate({_id: cardId}, {$set: {deckId}});
+            } else if (["nextReview", "created", "modified"].includes(k)) {
+                u[k] = u[k] ? moment(u[k]).toDate() : undefined;
+            } else if (["front", "back", "mnemonic", "srsLevel", "tag"].includes(k)) {
+                await this.card.findOneAndUpdate({_id: cardId}, {$set: {[k]: v}});
+            } else if (["css", "js"].includes(k)) {
+                const c = await this.card.findOne({_id: cardId});
+                if (c && c.noteId) {
+                    await this.note.findOneAndUpdate({_id: c.noteId}, {$set: {[k]: v}});
+                }
+            } else if (["tFront", "tBack"].includes(k)) {
+                const c = await this.card.findOne({_id: cardId});
+                if (c && c.templateId) {
+                    await this.note.findOneAndUpdate({_id: c.noteId},
+                        {$set: {[k.substr(1).toLocaleLowerCase()]: v}});
+                }
+            } else if (k === "data") {
+                const c = await this.card.findOne({_id: cardId});
+                if (c) {
+                    let isUpdated = false;
+                    if (c.noteId) {
+                        const n = await this.note.findOne({_id: c.noteId})
+                        if (n) {
+                            const data = n.data;
+                            for (const row of data) {
+                                if (row.key === k) {
+                                    row.value = v;
+                                    isUpdated = true;
+                                    break;
+                                }
+                            }
+                            if (!isUpdated) {
+                                data.push({key: k, value: v});
+                                isUpdated = true;
+                            }
+
+                            await this.note.findOneAndUpdate({_id: c.noteId}, {$set: {data}});
+                        }
+                    }
+
+                    if (!isUpdated) {
+                        const noteId = (await this.note.insertOne({
+                            userId,
+                            key: uuid(),
+                            data: [{key: k, value: v}]
+                        })).insertedId;
+                        await this.card.findOneAndUpdate({_id: cardId}, {$set: {noteId}});
+                    }
+                }
+            }
+        }
+    }
+
+    public async addTags(ids: ObjectID[], tags: string[]) {
+        return (await this.card.updateMany({_id: {$in: ids}}, {
             $set: {modified: new Date()},
             $addToSet: {tag: {$each: tags}}
         })).result;
     }
 
-    public async removeTags(ids: string[], tags: string[]) {
-        return (await this.card.updateMany({_id: {$in: ids.map((id) => new ObjectID(id))}}, {
+    public async removeTags(ids: ObjectID[], tags: string[]) {
+        return (await this.card.updateMany({_id: {$in: ids}}, {
             $set: {modified: new Date()},
             $pull: {tag: {$in: tags}}
         })).result;
@@ -546,7 +604,7 @@ export class Database {
             cardId = (await this.insertMany(userId, [card]))[0];
         } else {
             const {srsLevel, streak, nextReview} = card;
-            await this.updateMany([cardId], {srsLevel, streak, nextReview});
+            await this.updateMany(userId, [cardId], {srsLevel, streak, nextReview});
         }
 
         return cardId!;

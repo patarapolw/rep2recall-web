@@ -31,9 +31,9 @@ router.put("/", asyncHandler(async (req, res) => {
         const ids = await db.insertMany(res.locals.userId, [create]);
         return res.json({id: ids[0]});
     } else if (ids) {
-        return res.json(await db.updateMany(ids, update));
+        return res.json(await db.updateMany(res.locals.userId, ids, update));
     } else {
-        return res.json(await db.updateMany([id], update));
+        return res.json(await db.updateMany(res.locals.userId, [id], update));
     }
 }));
 

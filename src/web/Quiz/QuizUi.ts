@@ -284,6 +284,7 @@ export default class QuizUi extends Vue {
     }
 
     private async renderQuizContent() {
+        this.quizContent = "";
         this.quizShownAnswer = false;
         const id = this.quizIds[this.currentQuizIndex];
         if (id) {

@@ -1,5 +1,5 @@
 import sqlite3 from "better-sqlite3";
-import Database from "./db";
+import Database, { INoteDataSocket } from "./db";
 import { ObjectID } from "bson";
 import moment from "moment";
 import shortid from "shortid";
@@ -331,10 +331,11 @@ export default class ExportDb {
 
             const {insertedIds} = await db.note.insertMany(subList.map((n) => {
                 const {key, data, sourceH} = n;
+
                 return {
                     userId,
                     key,
-                    data: data ? JSON.parse(data) : undefined,
+                    data: JSON.parse(data) || [],
                     sourceId: sourceH ? sourceHToId[sourceH] : undefined
                 };
             }));
