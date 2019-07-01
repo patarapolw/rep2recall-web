@@ -138,6 +138,18 @@ export class Database {
         return;
     }
 
+    public async reset(userId: ObjectID) {
+        await Promise.all([
+            this.user.deleteOne({_id: userId}),
+            this.deck.deleteMany({userId}),
+            this.source.deleteMany({userId}),
+            this.template.deleteMany({userId}),
+            this.note.deleteMany({userId}),
+            this.media.deleteMany({userId}),
+            this.card.deleteMany({userId})
+        ]);
+    }
+
     public async insertMany(userId: ObjectID, entries: any[]): Promise<ObjectID[]> {
         entries = await Promise.all(entries.map((e) => this.transformCreateOrUpdate(userId, null, e)));
 

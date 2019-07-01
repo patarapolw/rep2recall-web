@@ -9,6 +9,7 @@ import connectMongo from "connect-mongodb-session";
 import authRouter from "./api/auth";
 import editorRouter from "./api/editor";
 import quizRouter from "./api/quiz";
+import indexRouter from "./api";
 import "./auth/auth0";
 import "./auth/token";
 import http from "http";
@@ -23,23 +24,23 @@ const MongoStore = connectMongo(session);
 g.server = new http.Server(app);
 const sessionMiddleware = session({
     secret: process.env.SECRET_KEY!,
-    cookie: { maxAge: 60000 },
+    cookie: { maxAge: 24 * 3600 * 1000 },
     resave: false,
     saveUninitialized: true,
     store: new MongoStore({
         uri: process.env.MONGO_URI!,
         collection: "session"
     })
-})
-
-g.io = SocketIO(g.server).use((socket, next) => {
-    sessionMiddleware(socket.request, {} as any, next);
 });
 
 app.use(sessionMiddleware);
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+g.io = SocketIO(g.server).use((socket, next) => {
+    sessionMiddleware(socket.request, {} as any, next);
+});
 
 app.use(express.static("public"));
 
@@ -52,6 +53,7 @@ apiRouter.use("/auth", authRouter);
 apiRouter.use("/editor", editorRouter);
 apiRouter.use("/io", require("./api/io").default);
 apiRouter.use("/quiz", quizRouter);
+apiRouter.use("/", indexRouter);
 
 (async () => {
     await mongoClient.connect();

@@ -208,7 +208,7 @@ export class SearchParser {
                 }
             }
 
-            orCond.push(this.fitCondToTables("@*", {$regex: escapeRegExp(q)}));
+            orCond.push(this.fitCondToTables("data.value", {$regex: escapeRegExp(q)}));
             
             return {$or: orCond};
         }

@@ -5,16 +5,6 @@ import swal from "sweetalert";
 
 @Component({
     template: h(".container.mt-3", [
-        h("h3", "Media file location"),
-        h("p", [
-            h("span", "Media files are accessible at "),
-            h("a", {attrs: {
-                href: "#",
-                "v-on:click": "openMediaFolder"
-            }}, "{{ mediaFolder }}"),
-            h("span", " as "),
-            h("code", "/media/filename.ext")
-        ]),
         h("h3.mt-3.danger", "Reset user database"),
         h(".row", [
             h(".col-8.danger", "Please ensure you want to reset the database"),
@@ -38,7 +28,13 @@ export default class SettingsUi extends Vue {
         });
 
         if (r) {
-            await fetchJSON("/api/reset", {}, "DELETE")
+            await fetchJSON("/api/reset", {}, "DELETE");
+            await swal({
+                text: "Database is reset",
+                icon: "info",
+                buttons: [true, true],
+                dangerMode: true
+            });
         }
     }
 }
