@@ -17,7 +17,7 @@ router.post("/", asyncHandler(async (req, res) => {
     return res.json(await db.parseCond(res.locals.userId, parser.doParse(q) || {}, {
         offset, limit, sortBy, desc,
         fields: ["deck", "front" , "back", "mnemonic", "tag", "srsLevel", "nextReview", "created", "modified",
-        "data", "tFront", "tBack", "css", "js"]
+        "data", "tFront", "tBack", "css", "js", "source", "template"]
     }));
 }));
 
