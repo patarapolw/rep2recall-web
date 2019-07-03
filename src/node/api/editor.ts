@@ -21,6 +21,16 @@ router.post("/", asyncHandler(async (req, res) => {
     }));
 }));
 
+router.post("/getOne", asyncHandler(async (req, res) => {
+    const {id} = req.body;
+    const db = new Database();
+    return res.json((await db.parseCond(res.locals.userId, {cond: {id}}, {
+        limit: 1,
+        fields: ["deck", "front" , "back", "mnemonic", "tag", "srsLevel", "nextReview", "created", "modified",
+        "data", "tFront", "tBack", "css", "js", "source", "template"]
+    })).data[0]);
+}));
+
 router.put("/", asyncHandler(async (req, res) => {
     const {id, ids, create, update} = req.body;
     const db = new Database();

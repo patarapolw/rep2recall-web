@@ -255,8 +255,8 @@ export default class EntryEditor extends Vue {
         if (this.entryId) {
             this.isLoading = true;
 
-            const data = await fetchJSON("/api/editor/", {cond: {id: this.entryId}});
-            Vue.set(this, "data", fixData(data.data[0]));
+            const data = await fetchJSON("/api/editor/getOne", {id: this.entryId});
+            Vue.set(this, "data", fixData(data));
         }
         
         this.isLoading = false;

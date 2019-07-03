@@ -291,7 +291,7 @@ export class Database {
         const q = await this.card.aggregate<any>([
             {$match: {userId}},
             {$project: proj},
-            ...(proj.noteId ? [
+            ...(proj.noteId || proj.sourceId ? [
                 {$lookup: {
                     from: "note",
                     localField: "noteId",
@@ -318,7 +318,7 @@ export class Database {
             ...(proj.sourceId ? [
                 {$lookup: {
                     from: "source",
-                    localField: "sourceId",
+                    localField: "n.sourceId",
                     foreignField: "_id",
                     as: "s"
                 }},
@@ -358,7 +358,7 @@ export class Database {
                 ...(proj.sourceId ? {
                     source: "$s.name",
                     sH: "$s.h",
-                    sCreated: "$.created"
+                    sCreated: "$s.created"
                 } : {})
             }},
             {$match: cond.cond},
