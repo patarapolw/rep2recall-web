@@ -1,0 +1,17 @@
+.container.mt-3
+  h3 Import file
+  .input-group
+    .custom-file
+      input.custom-file-input(type="file", accept=".apkg, .r2r, .db", @change="onImportFileChanged")
+      label.custom-file-label {{ importFile ? importFile.name : 'Please choose file to upload (*.apkg, *.r2r, *.db)' }}
+    .input-group-append
+      button.btn.btn-outline-success.input-group-text(
+        :disabled="!importFile", @click="onImportButtonClicked"
+      ) Upload
+  b-modal(ref="uploadModal", hide-footer="", hide-header-close="Uploading", title="Uploading", @hide="preventHide")
+    div {{progress.text}}
+    .progress.mt-3(:style="{display: progress.max ? 'block': 'none'}")
+      .progress-bar.progress-bar-striped(
+        role="progressbar", :aria-valuenow="progress.current", aria-valuemin="0", :aria-valuemax="progress.max",
+        :style="{width: getProgressPercent(), transition: 'none'}"
+      ) {{progress.max === 1 ? getProgressPercent() : `${progress.current} of ${progress.max}`}}

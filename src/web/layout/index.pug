@@ -1,0 +1,39 @@
+.row.stretched
+  b-nav.nav-left(vertical="", v-if="!isMobile || isExpanded")
+    b-nav-item(to="/quiz")
+      i.far.fa-question-circle.nav-icon(v-b-tooltip.hover="", title="Quiz")
+    b-nav-item(to="/editor")
+      i.far.fa-edit.nav-icon(v-b-tooltip.hover="", title="Editor")
+    b-nav-item(to="/import")
+      i.fas.fa-file-import.nav-icon(v-b-tooltip.hover="", title="Import")
+    b-nav-item(to="/settings")
+      i.fas.fa-cog.nav-icon(v-b-tooltip.hover="", title="Settings")
+    b-nav-item(href="https://github.com/patarapolw/rep2recall-web", target="_blank")
+      i.fab.fa-github.nav-icon(v-b-tooltip.hover="", title="GitHub")
+    
+    b-nav-item(
+      style="margin-top: auto",
+      @click="profile ? (profile.picture ? logout() : undefined) : login()"
+    )
+      i.fas.fa-user.nav-icon(v-if="!profile", v-b-tooltip.hover="", title="Click here to login")
+      .nav-icon(v-else-if="profile.picture", v-b-tooltip.hover="", title="Click here to logout")
+        img(:src="profile.picture")
+      i.fas.fa-user-lock.nav-icon(
+        v-else="", v-b-tooltip.hover="", :title="profile.email", style="margin-left: -0.1em"
+      )
+
+  .nav-left(v-if="isMobile", style="position: fixed; bottom: 0")
+    .arrow-up(v-if="!isExpanded", @click="isExpanded = true")
+    .arrow-down(v-if="isExpanded", @click="isExpanded = false")
+
+    div(@click="profile ? (profile.picture ? logout() : undefined) : login()")
+      i.fas.fa-user.nav-icon(v-if="!profile", v-b-tooltip.hover="", title="Click here to login")
+      .nav-icon(v-else-if="profile.picture", v-b-tooltip.hover="", title="Click here to logout")
+        img(:src="profile.picture")
+      i.fas.fa-user-lock.nav-icon(
+        v-else="", v-b-tooltip.hover="", :title="profile.email", style="margin-left: -0.1em"
+      )
+
+  .separate-vertical
+  .body(style="overflow: scroll", :class="{mobile: isMobile}")
+    router-view

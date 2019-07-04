@@ -268,3 +268,5 @@ export function deepMerge(d: any, u: any) {
 
     return Object.assign(output, uRemaining);
 }
+
+export const mobileQuery = matchMedia("(max-width: 1000px), (screen and (-webkit-device-pixel-ratio:3)))");

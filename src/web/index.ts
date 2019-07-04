@@ -1,17 +1,18 @@
 import Vue from "vue";
 import VueRouter from "vue-router";
-import "./index.scss";
 import BootstrapVue from "bootstrap-vue";
 import "bootstrap";
 import $ from "jquery";
-import h from "hyperscript";
 import QuizUi from "./quiz/QuizUi";
 import "./contextmenu";
 import EditorUi from "./editor/EditorUi";
-import { slowClick } from "./util/util";
+import { slowClick, mobileQuery } from "./util";
 import ImportUi from "./import/ImportUi";
 import SettingsUi from "./settings/SettingsUi";
 import swal from "sweetalert";
+
+import template from "./layout/index.pug";
+import "./layout/index.scss";
 
 // @ts-ignore
 import VueCodemirror from "vue-codemirror";
@@ -56,87 +57,22 @@ const router = new VueRouter({
 
 const app = new Vue({
     router,
-    template: h(".row.stretched", [
-        h("b-nav.nav-left", { attrs: { "vertical": "" } }, [
-            h("b-nav-item", { attrs: { to: "/quiz" } }, [
-                h("i.far.fa-question-circle.nav-icon", {
-                    attrs: {
-                        "v-b-tooltip.hover": "",
-                        title: "Quiz"
-                    }
-                })
-            ]),
-            h("b-nav-item", { attrs: { to: "/editor" } }, [
-                h("i.far.fa-edit.nav-icon", {
-                    attrs: {
-                        "v-b-tooltip.hover": "",
-                        title: "Editor"
-                    }
-                }),
-            ]),
-            h("b-nav-item", { attrs: { to: "/import" } }, [
-                h("i.fas.fa-file-import.nav-icon", {
-                    attrs: {
-                        "v-b-tooltip.hover": "",
-                        title: "Import"
-                    }
-                }),
-            ]),
-            h("b-nav-item", { attrs: { to: "/settings" } }, [
-                h("i.fas.fa-cog.nav-icon", {
-                    attrs: {
-                        "v-b-tooltip.hover": "",
-                        title: "Settings"
-                    }
-                }),
-            ]),
-            h("b-nav-item", { attrs: { href: "https://github.com/patarapolw/rep2recall-web", target: "_blank" } }, [
-                h("i.fab.fa-github.nav-icon", {
-                    attrs: {
-                        "v-b-tooltip.hover": "",
-                        title: "GitHub"
-                    }
-                })
-            ]),
-            h("b-nav-item", { 
-                style: {"margin-top": "auto"},
-                attrs: {
-                    "v-on:click": "profile ? (profile.picture ? logout() : undefined) : login()"
-                }
-            }, [
-                h("i.fas.fa-user.nav-icon", {attrs: {
-                    "v-if": "!profile",
-                    "v-b-tooltip.hover": "",
-                    title: "Click here to Login"
-                }}),
-                h(".nav-icon", {attrs: {
-                    "v-else-if": "profile && profile.picture",
-                    "v-b-tooltip.hover": "",
-                    "title": "Click here to Logout"
-                }}, [
-                    h("img", {attrs: {
-                        ":src": "profile.picture"
-                    }})
-                ]),
-                h("i.fas.fa-user-lock.nav-icon", {attrs: {
-                    "v-else": "",
-                    "v-b-tooltip.hover": "",
-                    ":title": "profile.email",
-                    "style": "margin-left: -0.1em;"
-                }})
-            ]),
-        ]),
-        h(".separate-vertical"),
-        h(".body", { style: { overflow: "scroll" } }, [
-            h("router-view")
-        ])
-    ]).outerHTML,
+    template,
     data() {
         return {
-            profile: null as any
+            profile: null as any,
+            isExpanded: false,
+            isMobile: mobileQuery.matches
         };
     },
+    computed: {
+        currentMobile() {
+            return mobileQuery.matches;
+        }
+    },
     async created() {
+        window.addEventListener("resize", this.onResize);
+
         try {
             this.profile = await (await fetch("/api/auth/profile")).json()
         } catch (e) {
@@ -152,12 +88,18 @@ const app = new Vue({
             });
         }
     },
+    beforeDestroy() {
+        window.removeEventListener("resize", this.onResize);
+    },
     methods: {
         login() { 
             location.href = "/api/auth/login";
          },
         logout() {
             location.href = "/api/auth/logout";
+        },
+        onResize() {
+            this.isMobile = mobileQuery.matches;
         }
     }
 }).$mount("#App");

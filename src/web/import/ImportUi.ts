@@ -1,59 +1,10 @@
 import { Vue, Component, Watch } from "vue-property-decorator";
-import h from "hyperscript";
 import swal from "sweetalert";
 import io from "socket.io-client";
 
-@Component({
-    template: h(".container.mt-3", [
-        h("h3", "Import file"),
-        h(".input-group", [
-            h(".custom-file", [
-                h("input.custom-file-input", {
-                    type: "file",
-                    accept: ".apkg, .r2r, .db",
-                    attrs: {
-                        "v-on:change": "onImportFileChanged"
-                    }
-                }),
-                h("label.custom-file-label", "{{ importFile ? importFile.name : 'Please file to upload (*.apkg, *.r2r, *.db)' }}")
-            ]),
-            h(".input-group-append", [
-                h("button.btn.btn-outline-success.input-group-text", {
-                    attrs: {
-                        ":disabled": "!importFile",
-                        "v-on:click": "onImportButtonClicked"
-                    }
-                }, "Upload")
-            ])
-        ]),
-        h("b-modal", {
-            attrs: {
-                "ref": "uploadModal",
-                "hide-footer": "",
-                "hide-header-close": "",
-                "title": "Uploading",
-                "v-on:hide": "preventHide"
-            }
-        }, [
-            h("div", "{{progress.text}}"),
-            h(".progress.mt-3", {
-                attrs: {
-                    ":style": "{display: progress.max ? 'block': 'none'}"
-                }
-            }, [
-                    h(".progress-bar.progress-bar-striped", {
-                        attrs: {
-                            "role": "progressbar",
-                            ":aria-valuenow": "progress.current",
-                            "aria-valuemin": "0",
-                            ":aria-valuemax": "progress.max",
-                            ":style": "{width: getProgressPercent(), transition: 'none'}"
-                        }
-                    }, "{{progress.max === 1 ? getProgressPercent() : `${progress.current} of ${progress.max}`}}")
-                ])
-        ])
-    ]).outerHTML
-})
+import template from "../layout/import/import.pug";
+
+@Component({template})
 export default class ImportUi extends Vue {
     private importFile: File | null = null;
     private progress: any = {};
