@@ -1,0 +1,47 @@
+.container.mt-3
+  .ml-3
+    i Click or right-click deck names to start reviewing.
+  input.form-control(
+    placeholder="Type here to search", spellcheck="false", autocomplete="off", autocorrect="off", autocapitalize="off",
+    v-model="q", @keyup="onInputKeypress"
+  )
+  .treeview
+    img.small-spinner(v-if="isLoading", src="Spinner-1s-200px.svg")
+    ul
+      treeview-item(
+        v-for="c in data", :key="c.fullName", :data="c", :q="q", :parent-is-open="true",
+        :on-review="onReview", :on-delete="onDelete"
+      )
+  b-modal#quiz-modal(scrollable="", hide-header="", @show="onQuizShown", @hide="getTreeviewData")
+    iframe(:srcdoc="quizContentPrefix + quizContent", frameborder="0")
+    .counter
+      small {{counter}}
+    .w-100.d-flex.justify-content-between(slot="modal-footer")
+      .nav-arrow
+        button.btn.btn-secondary.quiz-previous(
+          v-if="currentQuizIndex > 0", @click="onQuizPreviousButtonClicked"
+        ) &lt;
+      .nav-btn
+        button.btn.btn-primary.ml-2.quiz-toggle.quiz-show(
+          v-if="currentQuizIndex >= 0 && !quizShownAnswer", @click="quizShownAnswer = true"
+        ) Show
+        button.btn.btn-secondary.ml-2.quiz-toggle.quiz-hide(
+          v-if="currentQuizIndex >= 0 && quizShownAnswer", @click="quizShownAnswer = false"
+        ) Hide
+        button.btn.btn-success.ml-2.quiz-right(
+          v-if="quizShownAnswer", @click="onQuizRightButtonClicked"
+        ) Right
+        button.btn.btn-danger.ml-2.quiz-wrong(
+          v-if="quizShownAnswer", @click="onQuizWrongButtonClicked"
+        ) Wrong
+        b-button.ml-2.quiz-edit(
+          v-if="quizShownAnswer", variant="info", v-b-modal.edit-entry-modal=""
+        ) Edit
+      .nav-arrow
+        b-button.float-right.quiz-next(
+          v-if="quizIds.length > 0 && currentQuizIndex < quizIds.length - 1",
+          variant="secondary", @click="onQuizNextButtonClicked"
+        ) &gt;
+  entry-editor#entry-editor-modal(
+    title="Edit entry", :entry-id="quizIds[currentQuizIndex]", @ok="onEntrySaved"
+  )

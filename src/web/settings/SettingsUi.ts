@@ -1,24 +1,11 @@
 import { Vue, Component } from "vue-property-decorator";
-import h from "hyperscript";
-import { fetchJSON } from "../util/util";
+import { fetchJSON } from "../util";
 import swal from "sweetalert";
 
-@Component({
-    template: h(".container.mt-3", [
-        h("h3.mt-3.danger", "Reset user database"),
-        h(".row", [
-            h(".col-8.danger", "Please ensure you want to reset the database"),
-            h(".col-4", [
-                h("button.btn.btn-danger.form-control", {attrs: {
-                    "v-on:click": "onResetDatabaseClicked"
-                }}, "Reset database")
-            ])
-        ])
-    ]).outerHTML
-})
-export default class SettingsUi extends Vue {
-    private mediaFolder = "";
+import template from "../layout/settings/settings.pug";
 
+@Component({template})
+export default class SettingsUi extends Vue {
     private async onResetDatabaseClicked() {
         const r = await swal({
             text: "Please ensure you want to reset the database. The app will restart afterwards.",

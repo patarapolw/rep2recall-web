@@ -36,8 +36,12 @@ module.exports = {
                 include: /\.module\.css$/
             },
             {
-                test: /\.(html|pug|jade|txt)$/,
+                test: /\.(html|txt)$/,
                 use: "raw-loader"
+            },
+            {
+                include: /\.pug/,
+                loader: ['raw-loader', 'pug-html-loader']
             },
             {
                 test: /\.(woff(2)?|ttf|eot|svg)(\?v=\d+\.\d+\.\d+)?$/,

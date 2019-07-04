@@ -1,7 +1,7 @@
 import { Vue, Component, Prop, Watch } from "vue-property-decorator";
 import h from "hyperscript";
 import quizState from "./shared";
-import { normalizeArray } from "../util/util";
+import { normalizeArray, mobileQuery } from "../util";
 
 interface ITreeViewStat {
     new: number;
@@ -115,7 +115,9 @@ export default class TreeviewItem extends Vue {
         }
     }
 
-    private readMq(mq: MediaQueryListEvent | MediaQueryList = this.state.mediaQuery) {
+    private readMq() {
+        const mq = mobileQuery;
+
         if (mq.matches && this.state.isQuizShown) {
             this.state.isDeckHidden = true;
         } else {

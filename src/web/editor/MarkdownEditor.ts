@@ -1,6 +1,6 @@
 import { Vue, Component, Prop, Emit } from "vue-property-decorator";
 import h from "hyperscript";
-import { quizDataToContent, ankiMustache } from "../util/util";
+import { quizDataToContent, ankiMustache } from "../util";
 
 @Component({
     template: h(".w-100", [

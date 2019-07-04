@@ -2,107 +2,16 @@ import { Vue, Component, Watch } from "vue-property-decorator";
 import h from "hyperscript";
 import swal from "sweetalert";
 import $ from "jquery";
-import "./quiz.scss";
 import TreeviewItem, { ITreeViewItem } from "./TreeviewItem";
 import EntryEditor from "../editor/EntryEditor";
-import { slowClick, fetchJSON, shuffle, quizDataToContent } from "../util/util";
+import { slowClick, fetchJSON, shuffle, quizDataToContent } from "../util";
+
+import "../layout/quiz/quiz.scss";
+import template from "../layout/quiz/quiz.pug";
 
 @Component({
     components: { TreeviewItem, EntryEditor },
-    template: h(".container.mt-3", [
-        h("div.ml-3", [
-            h("i", "Click or right-click deck names to start reviewing.")
-        ]),
-        h("input.form-control", {
-            placeholder: "Type here to search",
-            attrs: {
-                "v-model": "q",
-                "v-on:keyup": "onInputKeypress",
-                "spellcheck": "false",
-                "autocomplete": "off",
-                "autocorrect": "off",
-                "autocapitalize": "off"
-            }
-        }, "{{ q }}"),
-        h(".treeview", [
-            h("img.small-spinner", {attrs: {
-                "src": "Spinner-1s-200px.svg",
-                "v-if": "isLoading"
-            }}),
-            h("ul", [
-                h("treeview-item", {attrs: {
-                    "v-for": "c in data",
-                    ":key": "c.fullName",
-                    ":data": "c",
-                    ":q": "q",
-                    ":parent-is-open": "true",
-                    ":on-review": "onReview",
-                    ":on-delete": "onDelete"
-                }})
-            ])
-        ]),
-        h("b-modal", {attrs: {
-            "id": "quiz-modal",
-            "scrollable": "",
-            "hide-header": "",
-            "v-on:show": "onQuizShown",
-            "v-on:hide": "getTreeViewData"
-        }}, [
-            h("iframe", {attrs: {
-                ":srcdoc": "quizContentPrefix + quizContent",
-                "frameBorder": "0"
-            }}),
-            h(".counter", [
-                h("small", "{{currentQuizIndex >= 0 ? ((currentQuizIndex + 1).toLocaleString() + ' of ' + quizIds.length.toLocaleString()) : ''}}")
-            ]),
-            h(".w-100.d-flex.justify-content-between", {attrs: {
-                "slot": "modal-footer"
-            }}, [
-                h("div", {style: {width: "50px"}}, [
-                    h("button.btn.btn-secondary.quiz-previous", {attrs: {
-                        "v-if": "currentQuizIndex > 0",
-                        "v-on:click": "onQuizPreviousButtonClicked"
-                    }}, "<")
-                ]),
-                h("div", [
-                    h("button.btn.btn-primary.ml-2.quiz-toggle.quiz-show", {attrs: {
-                        "v-if": "currentQuizIndex >= 0 && !quizShownAnswer",
-                        "v-on:click": "quizShownAnswer = true",
-                    }}, "Show"),
-                    h("button.btn.btn-secondary.ml-2.quiz-toggle.quiz-hide", {attrs: {
-                        "v-if": "currentQuizIndex >= 0 && quizShownAnswer",
-                        "v-on:click": "quizShownAnswer = false",
-                    }}, "Hide"),
-                    h("button.btn.btn-success.ml-2.quiz-right", {attrs: {
-                        "v-if": "quizShownAnswer",
-                        "v-on:click": "onQuizRightButtonClicked"
-                    }}, "Right"),
-                    h("button.btn.btn-danger.ml-2.quiz-wrong", {attrs: {
-                        "v-if": "quizShownAnswer",
-                        "v-on:click": "onQuizWrongButtonClicked"
-                    }}, "Wrong"),
-                    h("b-button.ml-2.quiz-edit", {attrs: {
-                        "variant": "info",
-                        "v-if": "quizShownAnswer",
-                        "v-b-modal.edit-entry-modal": ""
-                    }}, "Edit"),
-                ]),
-                h("div", {style: {width: "50px"}}, [
-                    h("b-button.float-right.quiz-next", {attrs: {
-                        "v-if": "quizIds.length > 0 && currentQuizIndex < quizIds.length - 1",
-                        "v-on:click": "onQuizNextButtonClicked",
-                        "variant": "secondary"
-                    }}, ">")
-                ])
-            ])
-        ]),
-        h("entry-editor", {attrs: {
-            "id": "edit-entry-modal",
-            "title": "Edit entry",
-            ":entry-id": "quizIds[currentQuizIndex]",
-            "v-on:ok": "onEntrySaved"
-        }})
-    ]).outerHTML
+    template
 })
 export default class QuizUi extends Vue {
     private isLoading = true;
@@ -123,13 +32,21 @@ export default class QuizUi extends Vue {
     private quizData: any = {};
     private selectedDeck = "";
 
+    get counter() {
+        if (this.currentQuizIndex >= 0) {
+            return `${(this.currentQuizIndex + 1).toLocaleString()} of ${this.quizIds.length.toLocaleString()}`;
+        }
+
+        return  "";
+    }
+
     public mounted() {
-        this.getTreeViewData();
+        this.getTreeviewData();
         $(document.body).on("keydown", "#quiz-modal", this.keyboardHandler);
     }
 
     public update() {
-        this.getTreeViewData();
+        this.getTreeviewData();
     }
 
     public destroyed() {
@@ -168,7 +85,7 @@ export default class QuizUi extends Vue {
 
     private onInputKeypress(evt: any) {
         if (evt.key === "Enter") {
-            this.getTreeViewData();
+            this.getTreeviewData();
         }
     }
 
@@ -277,7 +194,7 @@ export default class QuizUi extends Vue {
         this.onQuizShowButtonClicked();
     }
 
-    private async getTreeViewData() {
+    private async getTreeviewData() {
         this.isLoading = true;
         this.data = await fetchJSON("/api/quiz/treeview", {q: this.q});
         this.isLoading = false;

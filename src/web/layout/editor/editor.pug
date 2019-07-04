@@ -1,0 +1,59 @@
+.stretched.editor-window
+  .editor-control
+    .editor-nav
+      button.btn(@click="offset = 0") &lt;&lt;
+      button.btn(@click="offset -= limit") &lt;
+      span {{editorLabel}}
+      button.btn(@click="offset += limit") &gt;
+      button.btn(@click="offset = Infinity") &gt;&gt;
+    .editor-button-space
+      b-button.editor-button(variant="outline-success", v-b-modal.new-entry-modal="") New card
+      span(v-if="checkedIds.size > 0")
+        b-button.editor-button(
+          v-if="checkedIds.size === 1",
+          variant="outline-primary", v-b-modal.edit-entry-modal=""
+        ) Edit
+        b-dropdown.mr-3(split="", variant="outline-secondary", @click="changeDeck", text="Change Deck")
+          b-dropdown-item(href="#", @click="addTags") Add tags
+          b-dropdown-item(href="#", @click="removeTags") Remove tags
+        b-button.editor-button(variant="outline-danger", @click="deleteCards") Delete
+    .editor-input
+      input.form-control(
+        placeholder="Type here to search", v-model="q", @keyup="onSearchbarKeypress",
+        spellcheck="false", autocomplete="off", autocorrect="off", autocapitalize="off"
+      )
+  table.table.table-hover#editorTable(:style="{width: tableWidth + 'px'}")
+    colgroup
+      col(style="{width: colWidths.checkbox + 'px'}")
+      col(v-for="c in tableCols", :key="c.name", :style="{width: (c.width || colWidths.extra) + 'px'}")
+      col(style="{width: '150px'}")
+    thead
+      tr
+        th
+          div
+            input(
+              type="checkbox", ref="checkbox.main", @click="onCheckboxClicked($event)",
+              :checked="checkedIds.size > 0", v-show="!allCardsSelected"
+            )
+            i.fas.fa-check-double(v-if="allCardsSelected", @click="allCardsSelected = false; checkedIds.clear()")
+        th(v-for="c in tableCols", :key="c.name", scope="col")
+          a(href="#", @click="onTableHeaderClicked(c.name)") {{ c.label }}
+          span(v-if="sortBy === c.name") {{ desc ? ' ▲' : ' ▼'}}
+        th
+    tbody
+      tr.fixed-header-offset
+      tr(v-for="d in data", :key="d.id", @click="onTableRowClicked(d.id)", :class="{selected: checkedIds.has(d.id)}")
+        td(style="width: 50px")
+          div
+            input(type="checkbox", @click.native="onCheckboxClicked($event, d.id)", :checked="checkedIds.has(d.id)")
+        td(v-for="a in getOrderedDict(d)", :key="a[0]")
+          .wrapper
+            iframe.wrapped(v-if="a[2].type === 'html'", :srcdoc="getHtml(d, a[0])", frameborder="0")
+            .wrapped(v-else-if="a[2].type === 'datetime'") {{ stringifyDate(a[1]) }}
+            .wrapped(v-else-if="a[2].type === 'tag'")
+              p(v-for="b in a[1]", :key="b", v-html="toHtmlAndBreak(b)")
+            .wrapped(v-else="", v-html="toHtmlAndBreak(a[1])")
+        td
+  entry-editor#new-entry-modal(title="Create new entry", @ok="onEntrySaved")
+  entry-editor#edit-entry-modal(title="Edit entry", :entry-id="Array.from(checkedIds)[0]", @ok="onEntrySaved")
+  img.page-loader(src="Spinner-1s-200px.svg", v-if="isLoading")

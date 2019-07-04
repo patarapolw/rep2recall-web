@@ -2,7 +2,7 @@ import { Vue, Component, Prop } from "vue-property-decorator";
 import h from "hyperscript";
 import flatpickr from "flatpickr";
 import { DateFormat } from "../shared";
-import { normalizeArray } from "../util/util";
+import { normalizeArray } from "../util";
 
 @Component({
     template: h(".input-group.datetime-nullable", {attrs: {
