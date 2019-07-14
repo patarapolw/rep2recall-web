@@ -51,10 +51,12 @@ export default class EditorUi extends Vue {
         const extraCols: string[] = [];
 
         for (const d of this.data) {
-            if (d.data) {
-                for (const it of d.data) {
-                    if (!extraCols.includes(it.key)) {
-                        extraCols.push(it.key);
+            if (d._meta && d._meta.order) {
+                for (const it of Object.keys(d._meta.order)) {
+                    if (!it.startsWith("_")) {
+                        if (!extraCols.includes(it)) {
+                            extraCols.push(it);
+                        }
                     }
                 }
             }
@@ -75,7 +77,7 @@ export default class EditorUi extends Vue {
 
         extraCols.forEach((c) => {
             cols.push({
-                name: `@${c}`,
+                name: `data.${c}`,
                 label: c[0].toLocaleUpperCase() + c.substr(1)
             });
         });
@@ -285,6 +287,8 @@ export default class EditorUi extends Vue {
 
         const r = await fetchJSON("/api/editor/", {q: this.q, offset: this.offset, limit: this.limit, 
             sortBy: this.sortBy, desc: this.desc});
+        
+        console.log(r);
 
         this.data = r.data.map((d: any) => fixData(d));
         this.count = r.count;

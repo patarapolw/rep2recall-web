@@ -1,5 +1,5 @@
 import sqlite3 from "better-sqlite3";
-import Database, { INoteDataSocket } from "./db";
+import Database, { IDataSocket } from "./db";
 import { ObjectID } from "bson";
 import moment from "moment";
 import shortid from "shortid";
@@ -331,11 +331,23 @@ export default class ExportDb {
 
             const {insertedIds} = await db.note.insertMany(subList.map((n) => {
                 const {key, data, sourceH} = n;
+                const dataProper: Record<string, any> = {};
+                const order: Record<string, number> = {};
+                let seq = 1;
+
+                for (const kv of (JSON.parse(data) || [] as IDataSocket[])) {
+                    data[kv.key] = kv.value;
+                    order[kv.key] = seq;
+                    seq++;
+                }
+
+                order._max = seq;
 
                 return {
                     userId,
+                    _meta: {order},
                     key,
-                    data: JSON.parse(data) || [],
+                    data: dataProper,
                     sourceId: sourceH ? sourceHToId[sourceH] : undefined
                 };
             }));

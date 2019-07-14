@@ -98,10 +98,10 @@
     "start": "node -r esm .",
     "dev": "concurrently 'yarn run js:dev' 'yarn run node:dev'",
     "js:dev": "rimraf public/js && webpack-dev-server --config webpack.dev.js",
-    "node:dev": "ts-node-dev -r esm src/node/server.ts",
+    "node:dev": "ts-node-dev -P tsconfig.node.json -r esm src/node/server.ts",
     "build": "yarn run node:build && yarn run js:build",
     "js:build": "rimraf public/js dist && webpack --config webpack.prod.js",
-    "node:build": "rimraf build && tsc -p src/node"
+    "node:build": "rimraf build && tsc -P tsconfig.node.json"
   },
   "engines": {
     "yarn": "*"

@@ -87,6 +87,8 @@ export function escapeRegExp(s: string) {
 }
 
 export function fixData(d: any): any {
+    console.log(d)
+
     if (d.front && ["@md5\n", "@template\n", "@rendered\n"].some((c) => d.front.startsWith(c))) {
         d.front = "@rendered\n" + ankiMustache(d.tFront, d);
     }
@@ -98,20 +100,15 @@ export function fixData(d: any): any {
     return d;
 }
 
-export interface IKv {
-    key: string,
-    value: string
-}
-
 export function ankiMustache(s: string, d: any): string {
     s = s.replace(/{{FrontSide}}/g, (d.front || "").replace(/@[^\n]+\n/g, ""));
 
-    const data: IKv[] = d.data || [];
-    for (const d of data) {
-        s = s.replace(new RegExp(`{{(\\S+:)?${escapeRegExp(d.key)}}}`), d.value);
+    const data: Record<string, any> = d.data || {};
+    const keys: string[] = [];
+    for (const [k, v] of Object.entries(data)) {
+        s = s.replace(new RegExp(`{{(\\S+:)?${escapeRegExp(k)}}}`), v);
+        keys.push(k);
     }
-
-    const keys = data.map((d) => d.key);
 
     s = s.replace(/{{#(\S+)}}(.*){{\1}}/gs, (m, p1, p2) => {
         if (keys.includes(p1)) {
@@ -209,43 +206,33 @@ export function removeTag(s: string, tag: string): string {
 }
 
 export function dotGetter(d: any, key: string): any {
-    const m = /^@(.+)$/.exec(key);
+    const m = /^data\.(.+)$/.exec(key);
     if (m) {
-        for (const it of d.data || []) {
-            if (it.key === m[1]) {
-                return it.value;
-            }
-        }
+        return (d.data || {})[m[1]]
     }
 
     return d[key];
 }
 
 export function dotSetter(d: any, key: string, v: any) {
-    const m = /^@(.+)$/.exec(key);
-    let isSet = false;
+    const m = /^data\.(.+)$/.exec(key);
 
     if (m) {
-        for (const it of d.data || []) {
-            if (it.key === m[1]) {
-                it.value = v;
-                isSet = true;
-            }
+        if (!d.data) {
+            Vue.set(d, "data", {});
         }
-        if (!isSet) {
-            if (!d.data) {
-                Vue.set(d, "data", []);
+
+        Vue.set(d.data, m[1], v);
+        if (d._meta && d._meta.order) {
+            if (!d._meta.order[m[1]]) {
+                Vue.set(d._meta.order, m[1], d._meta.order._max || -1);
             }
-            d.data.push({
-                key: m[1],
-                value: v
-            });
+        } else {
+            Vue.set(d, "_meta", {order: 1, _max: 2});
         }
     } else {
         Vue.set(d, key, v);
     }
-
-    console.log(d);
 }
 
 export function deepMerge(d: any, u: any) {
