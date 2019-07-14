@@ -19,7 +19,7 @@ import { g } from "./config";
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 7000;
 const MongoStore = connectMongo(session);
 g.server = new http.Server(app);
 const sessionMiddleware = session({
@@ -60,4 +60,4 @@ apiRouter.use("/", indexRouter);
     await new Database().build();
 
     g.server.listen(port, () => console.log(`Server running on http://localhost:${port}`));
-})();
+})().catch(console.error);

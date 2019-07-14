@@ -2,7 +2,7 @@
 
 ## Getting to token
 
-- You will need access to user's `secret` and `POST` to `/api/login` to get a token.
+- You will need access to user's `secret` and `POST` to `/api/auth/token` to get a token.
 - Sample body:
 
 ```json
@@ -16,7 +16,6 @@
 
 ```json
 {
-    "email": "your.email@email.com",
     "token": "<your_token>"
 }
 ```
