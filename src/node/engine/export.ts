@@ -3,7 +3,7 @@ import Database, { IDataSocket } from "./db";
 import { ObjectID } from "bson";
 import moment from "moment";
 import shortid from "shortid";
-import { IProgress } from "../util";
+import { IProgress, escapeRegExp, normalizeArray } from "../util";
 
 export default class ExportDb {
     public conn: sqlite3.Database;
@@ -39,8 +39,8 @@ export default class ExportDb {
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             sourceId    INTEGER REFERENCES source(id),
             key         VARCHAR,
-            data        VARCHAR NOT NULL /* JSON */,
-            UNIQUE (sourceId, key)
+            data        VARCHAR NOT NULL /* JSON */
+            /* UNIQUE (sourceId, key) */
         );
         CREATE TABLE IF NOT EXISTS media (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,7 +80,7 @@ export default class ExportDb {
         this.conn.close();
     }
 
-    public async export(userId: ObjectID) {
+    public async export(userId: ObjectID, deckName?: string, reset?: boolean) {
         const db = new Database();
         const [
             deck,
@@ -90,7 +90,9 @@ export default class ExportDb {
             media,
             card
         ] = await Promise.all([
-            db.deck.find({userId}).project({_id: 0, userId: 0}).toArray(),
+            db.deck.find({userId, 
+                name: deckName ? {$regex: `^${escapeRegExp(deckName)}/?`} : undefined
+            }).project({_id: 0, name: 1}).toArray(),
             db.source.find({userId}).project({_id: 0, userId: 0}).toArray(),
             db.template.aggregate([
                 {$match: {userId}},
@@ -104,6 +106,25 @@ export default class ExportDb {
             ]).toArray(),
             db.note.aggregate([
                 {$match: {userId}},
+                ...(deckName ? [
+                    {$lookup: {
+                        from: "card",
+                        localField: "_id",
+                        foreignField: "noteId",
+                        as: "c"
+                    }},
+                    {$unwind: {
+                        path: "$c",
+                        preserveNullAndEmptyArrays: true
+                    }},
+                    {$lookup: {
+                        from: "deck",
+                        localField: "deckId",
+                        foreignField: "c._id",
+                        as: "d"
+                    }},
+                    {$match: {"d.name": {$regex: `^${escapeRegExp(deckName)}/?`}}},
+                ] : []),
                 {$lookup: {
                     from: "source",
                     localField: "sourceId",
@@ -130,6 +151,9 @@ export default class ExportDb {
                     foreignField: "_id",
                     as: "d"
                 }},
+                ...(deckName ? [
+                    {$match: {"d.name": {$regex: `^${escapeRegExp(deckName)}/?`}}}
+                ] : []),
                 {$lookup: {
                     from: "template",
                     localField: "templateId",
@@ -174,7 +198,10 @@ export default class ExportDb {
                     @back,
                     @css,
                     @js
-                )`).run(t);
+                )`).run({
+                    ...t,
+                    sH: normalizeArray((t as any).sH)
+                });
             }
             for (const n of note) {
                 this.conn.prepare(`
@@ -185,6 +212,7 @@ export default class ExportDb {
                     @data
                 )`).run({
                     ...n,
+                    sH: normalizeArray((n as any).sH),
                     data: JSON.stringify(n.data)
                 });
             }
@@ -198,10 +226,13 @@ export default class ExportDb {
                     @h
                 )`).run({
                     ...m,
+                    sH: normalizeArray((m as any).sH),
                     data: m.data.buffer
                 });
             }
         })();
+
+        console.log(card);
 
         this.conn.transaction(() => {
             for (const c of card) {
@@ -215,10 +246,15 @@ export default class ExportDb {
                     @front, @back, @mnemonic, @srsLevel, @nextReview, @created, @modified, @stat
                 )`).run({
                     ...c,
-                    nextReview: c.nextReview ? c.nextReview.toISOString() : null,
+                    deck: normalizeArray((c as any).deck),
+                    template: normalizeArray((c as any).template),
+                    model: normalizeArray((c as any).model),
+                    key: normalizeArray((c as any).key),
+                    srsLevel: !reset ? c.srsLevel : null,
+                    nextReview: !reset && c.nextReview ? c.nextReview.toISOString() : null,
                     created: c.created.toISOString(),
-                    modified: c.modified ? c.modified.toISOString() : null,
-                    stat: c.stat ? JSON.stringify(c.stat) : null
+                    modified: !reset && c.modified ? c.modified.toISOString() : null,
+                    stat: !reset && c.stat ? JSON.stringify(c.stat) : null
                 });
             }
         })();

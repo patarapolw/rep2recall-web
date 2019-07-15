@@ -54,3 +54,11 @@ export interface IProgress {
 export function pp(x: any) {
     console.log(inspect(x, {depth: null, colors: true}));
 }
+
+export function normalizeArray(x: any) {
+    if (Array.isArray(x)) {
+        return x[0];
+    }
+
+    return x;
+}
