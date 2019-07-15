@@ -211,8 +211,6 @@ export class Database {
                 seq++;
             }
 
-            order._max = seq;
-
             nUpsert.push(this.note.findOneAndUpdate({userId, key: e.key}, {$setOnInsert: {
                 userId,
                 _meta: {order},
@@ -498,14 +496,14 @@ export class Database {
                         if (n) {
                             const data = n.data;
                             const _meta = n._meta;
+                            const max = Math.max(...Object.values(_meta.order));
 
                             if (k === "data") {
                                 for (const [k0, v0] of Object.entries(v as Record<string, any>)) {
                                     data[k0] = v0;
 
                                     if (!_meta.order[k0]) {
-                                        _meta.order[k0] = _meta.order._max;
-                                        _meta.order._max++;
+                                        _meta.order[k0] = max + 1;
                                     }
                                 }
                             } else {
@@ -513,8 +511,7 @@ export class Database {
                                 data[k0] = v;
 
                                 if (!_meta.order[k0]) {
-                                    _meta.order[k0] = _meta.order._max;
-                                    _meta.order._max++;
+                                    _meta.order[k0] = max + 1;
                                 }
                             }
 
@@ -525,7 +522,7 @@ export class Database {
                     if (!isUpdated) {
                         const noteId = (await this.note.insertOne({
                             userId,
-                            _meta: {order: {[k]: 1, _max: 2}},
+                            _meta: {order: {[k]: 1}},
                             key: uuid(),
                             data: {[k]: v}
                         })).insertedId;

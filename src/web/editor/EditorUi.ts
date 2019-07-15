@@ -53,10 +53,8 @@ export default class EditorUi extends Vue {
         for (const d of this.data) {
             if (d._meta && d._meta.order) {
                 for (const it of Object.keys(d._meta.order)) {
-                    if (!it.startsWith("_")) {
-                        if (!extraCols.includes(it)) {
-                            extraCols.push(it);
-                        }
+                    if (!extraCols.includes(it)) {
+                        extraCols.push(it);
                     }
                 }
             }

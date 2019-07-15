@@ -225,10 +225,11 @@ export function dotSetter(d: any, key: string, v: any) {
         Vue.set(d.data, m[1], v);
         if (d._meta && d._meta.order) {
             if (!d._meta.order[m[1]]) {
-                Vue.set(d._meta.order, m[1], d._meta.order._max || -1);
+                const max = Math.max(...Object.values(d._meta.order) as number[]);
+                Vue.set(d._meta.order, m[1], max + 1);
             }
         } else {
-            Vue.set(d, "_meta", {order: 1, _max: 2});
+            Vue.set(d, "_meta", {order: {[m[1]]: 1}});
         }
     } else {
         Vue.set(d, key, v);
