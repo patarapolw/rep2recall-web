@@ -10,7 +10,7 @@ import fs from "fs";
 import Anki from "../engine/anki";
 import { g } from "../config";
 import ExportDb from "../engine/export";
-import { pp } from "../util";
+import sanitize from "sanitize-filename";
 
 const router = Router();
 router.use(fileUpload());
@@ -61,5 +61,18 @@ g.io.on("connection", (socket: any) => {
         }
     });
 });
+
+router.get("/export", asyncHandler(async (req, res) => {
+    const {deck, reset} = req.query;
+    const tempFilename = path.join(g.TMP, uuid());
+    const newFile = new ExportDb(tempFilename, () => {});
+
+    await newFile.export(res.locals.userId, deck, reset);
+    newFile.close();
+
+    console.log("closed");
+
+    return res.download(tempFilename, `${sanitize(deck)}.db`);
+}));
 
 export default router;
