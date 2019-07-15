@@ -81,6 +81,10 @@ export default class ExportDb {
     }
 
     public async export(userId: ObjectID, deckName?: string, reset?: boolean) {
+        this.cb({
+            text: `Reading database`
+        });
+
         const db = new Database();
         const [
             deck,
@@ -172,10 +176,16 @@ export default class ExportDb {
             ]).toArray(),
         ]);
 
+        this.cb({
+            text: `Exporting decks`,
+            max: deck.length
+        });
+
         this.conn.transaction(() => {
             for (const d of deck) {
                 this.conn.prepare("INSERT INTO deck (name) VALUES (@name)").run(d);
             }
+
             for (const s of source) {
                 this.conn.prepare(`
                 INSERT INTO source (name, h, created)
@@ -185,6 +195,12 @@ export default class ExportDb {
                 });
             }
         })();
+
+        this.cb({
+            text: `Exporting notes`,
+            current: 0,
+            max: note.length
+        });
 
         this.conn.transaction(() => {
             for (const t of template) {
@@ -203,6 +219,8 @@ export default class ExportDb {
                     sH: normalizeArray((t as any).sH)
                 });
             }
+
+            let i = 0;
             for (const n of note) {
                 this.conn.prepare(`
                 INSERT INTO note (sourceId, key, data)
@@ -215,7 +233,17 @@ export default class ExportDb {
                     sH: normalizeArray((n as any).sH),
                     data: JSON.stringify(n.data)
                 });
+                i++;
+
+                if (i % 1000 === 0) {
+                    this.cb({
+                        text: `Exporting notes`,
+                        current: i,
+                        max: note.length
+                    });
+                }
             }
+
             for (const m of media) {
                 this.conn.prepare(`
                 INSERT INTO media (sourceId, name, data, h)
@@ -232,9 +260,14 @@ export default class ExportDb {
             }
         })();
 
-        console.log(card);
+        this.cb({
+            text: `Exporting cards`,
+            current: 0,
+            max: card.length
+        });
 
         this.conn.transaction(() => {
+            let i = 0;
             for (const c of card) {
                 this.conn.prepare(`
                 INSERT INTO card (deckId, templateId, noteId, front, back, mnemonic, srsLevel,
@@ -256,6 +289,16 @@ export default class ExportDb {
                     modified: !reset && c.modified ? c.modified.toISOString() : null,
                     stat: !reset && c.stat ? JSON.stringify(c.stat) : null
                 });
+
+                i++;
+
+                if (i % 1000 === 0) {
+                    this.cb({
+                        text: `Exporting cards`,
+                        current: i,
+                        max: note.length
+                    });
+                }
             }
         })();
     }
