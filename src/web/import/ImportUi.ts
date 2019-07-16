@@ -51,7 +51,7 @@ export default class ImportUi extends Vue {
 
             ws.on("connect", () => {
                 if (!started) {
-                    ws.send({
+                    ws.emit("import", {
                         id,
                         type: /\.[^.]+$/.exec(this.importFile!.name)![0]
                     });

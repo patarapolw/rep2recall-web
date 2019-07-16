@@ -3,7 +3,7 @@ import { ISearchParserResult } from "./search";
 import { srsMap, getNextReview, repeatReview } from "./quiz";
 import dotenv from "dotenv";
 import SparkMD5 from "spark-md5";
-import { ankiMustache, pp } from "../util";
+import { ankiMustache } from "../util";
 import moment from "moment";
 import uuid from "uuid/v4";
 dotenv.config();
@@ -43,17 +43,20 @@ export interface IDbTemplate {
     js?: string;
 }
 
-export interface INoteDataSocket {
-    key: string;
-    value: any;
-}
-
 export interface IDbNote {
     _id?: ObjectID;
+    _meta: {
+        order: Record<string, number>;
+    };
     userId: ObjectID;
     sourceId?: ObjectID;
     key: string;
-    data: INoteDataSocket[];
+    data: Record<string, any>;
+}
+
+export interface IDataSocket {
+    key: string;
+    value: any;
 }
 
 export interface IDbMedia {
@@ -129,7 +132,7 @@ export class Database {
                 this.deck.createIndex({userId: 1, name: 1}, {unique: true}),
                 this.source.createIndex({userId: 1, h: 1}, {unique: true}),
                 this.template.createIndex({userId: 1, sourceId: 1, name: 1, model: 1}, {unique: true}),
-                this.note.createIndex({userId: 1, sourceId: 1, key: 1}, {unique: true}),
+                // this.note.createIndex({userId: 1, sourceId: 1, key: 1}, {unique: true}),
                 this.media.createIndex({userId: 1, h: 1}, {unique: true}),
                 // this.card.createIndex({userId: 1, front: 1}, {unique: true}),
             ]);
@@ -151,40 +154,37 @@ export class Database {
     }
 
     public async insertMany(userId: ObjectID, entries: any[]): Promise<ObjectID[]> {
-        entries = await Promise.all(entries.map((e) => this.transformCreateOrUpdate(userId, null, e)));
-
-        const eValidSource = entries.filter((e) => e.sourceH);
+        entries = await Promise.all(entries.map((e) => this.transformCreateOrUpdate(null, e)));
         const now = new Date();
 
-        let sourceH: string = "";
-        let sourceId: ObjectID;
-        try {
-            await this.source.insertMany(eValidSource.filter((e, i) => {
-                return eValidSource.map((e1) => e1.sourceH).indexOf(e.sourceH) === i
-            }).map((e) => {
-                sourceH = e.sourceH;
-                return {
+        let sourceMap: Record<string, ObjectID> = {};
+        let sourceValidKey = entries.filter((e) => e.sourceH).map((e) => e.sourceH);
+        for (const e of entries.filter((e, i) => e.sourceH && sourceValidKey.indexOf(e.sourceH) === i)) {
+            const s = await this.source.findOne({h: e.sourceH, userId});
+            if (s) {
+                sourceMap[e.sourceH] = s._id!;
+            } else {
+                sourceMap[e.sourceH] = (await this.source.insertOne({
                     userId,
                     name: e.source,
                     created: e.sourceCreated || now,
                     h: e.sourceH
-                };
-            }), {ordered: false});
-        } catch (e) {}
-
-        if (sourceH) {
-            sourceId = (await this.source.findOne({h: sourceH}))!._id!
+                })).insertedId;
+            }
         }
 
-        const eValidTemplate = entries.filter((e) => e.tFront);
-        const tMap0: {[key: string]: number} = {};
+        const tMap: Record<string, ObjectID> = {};
+        const tValidKey = entries.filter((e) => e.template && e.model).map((e) => `${e.template}\x1f${e.model}`);
 
-        const tMap1 = (await this.template.insertMany(eValidTemplate.map((e, i) => {
+        for (const e of entries.filter((e, i) => e.template && e.model &&
+        tValidKey.indexOf(`${e.template}\x1f${e.model}`) === i)) {
             const key = `${e.template}\x1f${e.model}`;
-            if (!tMap0[key]) {
-                tMap0[key] = i;
+            const t = await this.template.findOne({name: e.template, model: e.model, userId});
 
-                return {
+            if (t) {
+                tMap[key] = t._id!;
+            } else {
+                tMap[key] = (await this.template.insertOne({
                     userId,
                     name: e.template,
                     model: e.model,
@@ -192,25 +192,37 @@ export class Database {
                     back: e.tBack,
                     css: e.css,
                     js: e.js,
-                    sourceId
-                }
+                    sourceId: sourceMap[e.sourceH]
+                })).insertedId;
             }
-            return null;
-        }).filter((e) => e) as IDbTemplate[], {ordered: false})).insertedIds;
+        }
 
-        const eValidNote = entries.filter((e) => e.data);
-        const nMap0: {[key: string]: number} = {};
+        const nMap: Record<string, ObjectID> = {};
+        const nUpsert: any[] = [];
 
-        const nMap1 = (await this.note.insertMany(eValidNote.map((e, i) => {
-            nMap0[e.key] = i;
+        for (const e of entries.filter((e) => e.data && e.key)) {
+            const data: Record<string, any> = {};
+            const order: Record<string, number> = {};
+            let seq = 1;
 
-            return {
+            for (const kv of (e.data as IDataSocket[])) {
+                data[kv.key] = kv.value;
+                order[kv.key] = seq;
+                seq++;
+            }
+
+            nUpsert.push(this.note.findOneAndUpdate({userId, key: e.key}, {$setOnInsert: {
                 userId,
+                _meta: {order},
                 key: e.key,
-                data: e.data,
-                sourceId
-            }
-        }, {ordered: false}))).insertedIds
+                data,
+                sourceId: sourceMap[e.sourceH]
+            }}, {upsert: true, returnOriginal: false}));
+        }
+
+        (await Promise.all(nUpsert)).map((upsertResult) => {
+            nMap[upsertResult.value!.key] = upsertResult.value!._id!;
+        })
 
         const dMap: {[key: string]: ObjectID} = {};
 
@@ -229,8 +241,8 @@ export class Database {
                 srsLevel: e.srsLevel,
                 nextReview: e.nextReview,
                 deckId: dMap[e.deck],
-                noteId: nMap1[nMap0[e.key]],
-                templateId: tMap1[tMap0[`${e.template}\x1f${e.model}`]],
+                noteId: nMap[e.key],
+                templateId: tMap[`${e.template}\x1f${e.model}`],
                 created: now,
                 tag: e.tag
             }
@@ -354,6 +366,7 @@ export class Database {
                 ...(proj.noteId ? {
                     key: "$n.key",
                     data: "$n.data",
+                    _meta: "$n._meta"
                 } : {}),
                 ...(proj.sourceId ? {
                     source: "$s.name",
@@ -419,22 +432,7 @@ export class Database {
                         dataFacet.push({$sample: {size: options.limit || collectionSize}});
                     } else {
                         if (options.sortBy) {
-                            if (options.sortBy[0] === "@") {
-                                const key = options.sortBy.substr(1);
-
-                                dataFacet.push(...[
-                                    {$project: {...outputProj, dKey: {$cond: [
-                                        {$in: [key, "$data.key"]},
-                                        "$data",
-                                        [{key}]
-                                    ]}}},
-                                    {$unwind: "$dKey"},
-                                    {$match: {"dKey.key": key}},
-                                    {$sort: {"dKey.value": options.desc ? -1 : 1}}
-                                ])
-                            } else {
-                                dataFacet.push({$sort: {[options.sortBy]: options.desc ? -1 : 1}});
-                            }
+                            dataFacet.push({$sort: {[options.sortBy]: options.desc ? -1 : 1}});
                         }
 
                         if (options.offset) {
@@ -469,7 +467,7 @@ export class Database {
     }
 
     private async updateOne(userId: ObjectID, cardId: ObjectID, u: any) {
-        u = await this.transformCreateOrUpdate(userId, cardId, u);
+        u = await this.transformCreateOrUpdate(cardId, u);
         for (const [k, v] of Object.entries(u)) {
             if (k === "deck") {
                 const deckId = await this.getOrCreateDeck(userId, v as string);
@@ -489,7 +487,7 @@ export class Database {
                     await this.note.findOneAndUpdate({_id: c.noteId},
                         {$set: {[k.substr(1).toLocaleLowerCase()]: v}});
                 }
-            } else if (k === "data") {
+            } else if (k.startsWith("data")) {
                 const c = await this.card.findOne({_id: cardId});
                 if (c) {
                     let isUpdated = false;
@@ -497,27 +495,36 @@ export class Database {
                         const n = await this.note.findOne({_id: c.noteId})
                         if (n) {
                             const data = n.data;
-                            for (const row of data) {
-                                if (row.key === k) {
-                                    row.value = v;
-                                    isUpdated = true;
-                                    break;
+                            const _meta = n._meta;
+                            const max = Math.max(...Object.values(_meta.order));
+
+                            if (k === "data") {
+                                for (const [k0, v0] of Object.entries(v as Record<string, any>)) {
+                                    data[k0] = v0;
+
+                                    if (!_meta.order[k0]) {
+                                        _meta.order[k0] = max + 1;
+                                    }
+                                }
+                            } else {
+                                const k0 = k.slice("data.".length);
+                                data[k0] = v;
+
+                                if (!_meta.order[k0]) {
+                                    _meta.order[k0] = max + 1;
                                 }
                             }
-                            if (!isUpdated) {
-                                data.push({key: k, value: v});
-                                isUpdated = true;
-                            }
 
-                            await this.note.findOneAndUpdate({_id: c.noteId}, {$set: {data}});
+                            await this.note.findOneAndUpdate({_id: c.noteId}, {$set: {data, _meta}});
                         }
                     }
 
                     if (!isUpdated) {
                         const noteId = (await this.note.insertOne({
                             userId,
+                            _meta: {order: {[k]: 1}},
                             key: uuid(),
-                            data: [{key: k, value: v}]
+                            data: {[k]: v}
                         })).insertedId;
                         await this.card.findOneAndUpdate({_id: cardId}, {$set: {noteId}});
                     }
@@ -622,9 +629,9 @@ export class Database {
         return cardId!;
     }
 
-    private async transformCreateOrUpdate(userId: ObjectID, cardId: ObjectID | null, u: {[key: string]: any} = {}):
+    private async transformCreateOrUpdate(cardId: ObjectID | null, u: {[key: string]: any} = {}):
     Promise<{[key: string]: any}> {
-        let data: INoteDataSocket[] | null = null;
+        let data: Record<string, any> | null = null;
         let front: string = "";
 
         if (u.front && u.front.startsWith("@template\n")) {
@@ -667,7 +674,7 @@ export class Database {
         return u;
     }
 
-    private async getData(cardId: ObjectID): Promise<INoteDataSocket[] | null> {
+    private async getData(cardId: ObjectID): Promise<Record<string, any> | null> {
         const c = await this.card.findOne({_id: cardId});
         if (c && c.noteId) {
             const n = await this.note.findOne({_id: c.noteId});

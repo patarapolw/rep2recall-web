@@ -1,5 +1,4 @@
 import crypto from 'crypto';
-import { INoteDataSocket } from './engine/db';
 import { inspect } from 'util';
 
 export function generateSecret(): Promise<string> {
@@ -17,17 +16,15 @@ export function escapeRegExp(s: string) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');  // $& means the whole matched string
 }
 
-export function ankiMustache(s: string, d: INoteDataSocket[] | null, front: string = ""): string {
+export function ankiMustache(s: string, d: Record<string, any> | null, front: string = ""): string {
     if (d === null) {
-        d = [];
+        d = {};
     }
 
     s = s.replace(/{{FrontSide}}/g, front.replace(/@html\n/g, ""))
 
     const keys = new Set<string>();
-    for (const item of d) {
-        const k = item.key;
-        const v = item.value;
+    for (const [k, v] of Object.entries(d)) {
 
         keys.add(k);
 

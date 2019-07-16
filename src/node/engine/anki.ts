@@ -2,7 +2,7 @@ import fs from "fs";
 import AdmZip from "adm-zip";
 import path from "path";
 import sqlite3 from "better-sqlite3";
-import Database from "./db";
+import Database, { IDataSocket } from "./db";
 import { ObjectID } from "bson";
 import SparkMD5 from "spark-md5";
 import shortid from "shortid";
@@ -94,11 +94,13 @@ export default class Anki {
         });
 
         let sourceId: ObjectID;
+        let sourceH: string;
         try {
+            sourceH = SparkMD5.ArrayBuffer.hash(fs.readFileSync(this.filepath))
             sourceId = (await db.source.insertOne({
                 userId,
                 name: this.filename,
-                h: SparkMD5.ArrayBuffer.hash(fs.readFileSync(this.filepath)),
+                h: sourceH,
                 created: new Date()
             })).insertedId;
         } catch (e) {
@@ -196,6 +198,7 @@ export default class Anki {
             m.name AS mname,
             d.name AS deck,
             qfmt,
+            afmt,
             tags
         FROM cards AS c
         INNER JOIN decks AS d ON d.id = did
@@ -211,17 +214,20 @@ export default class Anki {
             }
             current++;
 
-            const { keys, values, tname, mname, deck, qfmt, tags } = c;
+            const { keys, values, tname, mname, deck, qfmt, afmt, tags } = c;
             const vs = (values as string).split("\x1f");
 
+            const dataDict: Record<string, string> = {};
             const data = (keys as string).split("\x1f").map((k, i) => {
+                dataDict[k] = vs[i];
+
                 return {
                     key: k,
                     value: vs[i]
                 };
-            });
+            }) as IDataSocket[];
 
-            let front = ankiMustache(qfmt as string, data);
+            let front = ankiMustache(qfmt as string, dataDict);
             if (front === ankiMustache(qfmt as string, null)) {
                 return;
             }
@@ -240,11 +246,12 @@ export default class Anki {
                 deck: (deck as string).replace(/::/g, "/"),
                 model: mname as string,
                 template: tname as string,
-                entry: vs[0],
+                key: `${this.filename}/${mname}/${vs[0]}`,
                 data,
                 front,
+                back: `@md5\n${SparkMD5.hash(this.convertLink(ankiMustache(afmt as string, dataDict)))}`,
                 tag,
-                sourceId
+                sourceH
             });
         });
 

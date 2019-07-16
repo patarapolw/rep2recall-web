@@ -55,7 +55,8 @@ export interface ITreeViewItem {
                 ":q": "q",
                 ":parent-is-open": "isOpen",
                 ":on-review": "onReview",
-                ":on-delete": "onDelete"
+                ":on-delete": "onDelete",
+                ":on-export": "onExport"
             }})
         ])
     ]).outerHTML
@@ -66,12 +67,13 @@ export default class TreeviewItem extends Vue {
     @Prop() private parentIsOpen!: boolean;
     @Prop() private onReview!: (deck: string, type?: string) => any;
     @Prop() private onDelete!: (deck: string) => Promise<boolean>;
+    @Prop() private onExport!: (deck: string, reset?: boolean) => void;
 
     private isOpen = false;
     private isShownStat = true;
     private isDeleted = false;
 
-    private state = quizState
+    private state = quizState;
 
     constructor(props: any) {
         super(props)
@@ -86,10 +88,10 @@ export default class TreeviewItem extends Vue {
             new: () => this.startReview("new"),
             all: () => this.startReview("all"),
             exportDeck: () => {
-                location.href = `/api/io/export?deck=${encodeURIComponent(this.data.fullName)}`;
+                this.onExport(this.data.fullName);
             },
             exportDeckAndReset: () => {
-                location.href = `/api/io/export?deck=${encodeURIComponent(this.data.fullName)}&reset=true`;
+                this.onExport(this.data.fullName, true);
             },
             delete: async () => {
                 if (await this.onDelete(this.data.fullName)) {

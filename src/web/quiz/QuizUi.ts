@@ -5,6 +5,7 @@ import $ from "jquery";
 import TreeviewItem, { ITreeViewItem } from "./TreeviewItem";
 import EntryEditor from "../editor/EntryEditor";
 import { slowClick, fetchJSON, shuffle, quizDataToContent } from "../util";
+import io from "socket.io-client";
 
 import "../layout/quiz/quiz.scss";
 import template from "../layout/quiz/quiz.pug";
@@ -17,6 +18,7 @@ export default class QuizUi extends Vue {
     private isLoading = true;
     private data: ITreeViewItem[] = [];
     private q = "";
+    private progress: any = {};
 
     private quizIds: number[] = [];
     private currentQuizIndex: number = -1;
@@ -207,6 +209,46 @@ export default class QuizUi extends Vue {
         if (id) {
             this.quizData = await fetchJSON("/api/quiz/render", {id});
             this.quizContent = quizDataToContent(this.quizData, "front");
+        }
+    }
+
+    private onExport(deck: string, reset?: boolean) {
+        const ws = io(location.origin);
+        let started = false;
+
+        ws.on("connect", () => {
+            if (!started) {
+                ws.emit("export", {
+                    deck,
+                    reset
+                });
+                started = true;
+            }
+        });
+
+        ws.on("message", (msg: any) => {
+            try {
+                Vue.set(this, "progress", msg);
+                if (this.progress.error || !this.progress.text || this.progress.id) {
+                    ws.close();
+                }
+            } catch (e) {
+                console.log(msg);
+            }
+
+            if (msg.id) {
+                location.href = `/api/io/export?deck=${encodeURIComponent(deck)}&id=${msg.id}`;
+            }
+        });
+    }
+
+    private getProgressPercent() {
+        return (this.progress.max ? this.progress.current / this.progress.max * 100 : 100).toFixed(0) + "%";
+    }
+
+    private preventHide(e: any) {
+        if (this.progress.text && !this.progress.id) {
+            e.preventDefault();
         }
     }
 }

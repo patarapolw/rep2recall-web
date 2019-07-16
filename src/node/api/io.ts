@@ -29,13 +29,23 @@ router.post("/import", asyncHandler(async (req, res) => {
     return res.json({id});
 }));
 
+router.get("/export", asyncHandler(async (req, res) => {
+    const {deck, id} = req.query;
+    const tempFilename = path.join(g.TMP, id);
+    return res.download(tempFilename, `${sanitize(deck)}.db`);
+}));
+
 g.io.on("connection", (socket: any) => {
-    socket.on("message", async (msg: any) => {
+    async function getUserId() {
+        const db = new Database();
+        const email = process.env.DEFAULT_USER || socket.request.session.passport.user.emails[0].value;
+        const u = await db.user.findOne({email});
+        return u!._id!;
+    }
+
+    socket.on("import", async (msg: any) => {
         try {
-            const db = new Database();
-            const email = process.env.DEFAULT_USER || socket.request.session.passport.user.emails[0].value;
-            const u = await db.user.findOne({email});
-            const userId = u!._id!;
+            const userId = await getUserId();
 
             const {id, type} = msg;
             if (type === ".apkg") {
@@ -60,19 +70,29 @@ g.io.on("connection", (socket: any) => {
             });
         }
     });
+
+    socket.on("export", async (msg: any) => {
+        try {
+            const userId = await getUserId();
+
+            const {deck, reset} = msg;
+            const fileId = uuid();
+            const tempFilename = path.join(g.TMP, fileId);
+            const newFile = new ExportDb(tempFilename, (p) => {
+                g.io.send(p);
+            });
+
+            await newFile.export(userId, deck, reset);
+            newFile.close();   
+            
+            g.io.send({id: fileId, deck});
+        } catch (e) {
+            console.error(e);
+            g.io.send({
+                error: e.toString()
+            });
+        }
+    });
 });
-
-router.get("/export", asyncHandler(async (req, res) => {
-    const {deck, reset} = req.query;
-    const tempFilename = path.join(g.TMP, uuid());
-    const newFile = new ExportDb(tempFilename, () => {});
-
-    await newFile.export(res.locals.userId, deck, reset);
-    newFile.close();
-
-    console.log("closed");
-
-    return res.download(tempFilename, `${sanitize(deck)}.db`);
-}));
 
 export default router;

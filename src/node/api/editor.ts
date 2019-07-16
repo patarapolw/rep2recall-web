@@ -17,7 +17,7 @@ router.post("/", asyncHandler(async (req, res) => {
     return res.json(await db.parseCond(res.locals.userId, parser.doParse(q) || {}, {
         offset, limit: limit || 10, sortBy, desc,
         fields: fields || ["deck", "front" , "back", "mnemonic", "tag", "srsLevel", "nextReview", "created", "modified",
-        "data", "tFront", "tBack", "css", "js", "source", "template"]
+        "data", "tFront", "tBack", "css", "js", "source", "template", "_meta"]
     }));
 }));
 
@@ -27,7 +27,7 @@ router.post("/getOne", asyncHandler(async (req, res) => {
     return res.json((await db.parseCond(res.locals.userId, {cond: {id}}, {
         limit: 1,
         fields: ["deck", "front" , "back", "mnemonic", "tag", "srsLevel", "nextReview", "created", "modified",
-        "data", "tFront", "tBack", "css", "js", "source", "template"]
+        "data", "tFront", "tBack", "css", "js", "source", "template", "_meta"]
     })).data[0]);
 }));
 

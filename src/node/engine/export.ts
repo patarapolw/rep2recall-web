@@ -1,5 +1,5 @@
 import sqlite3 from "better-sqlite3";
-import Database, { INoteDataSocket } from "./db";
+import Database, { IDataSocket } from "./db";
 import { ObjectID } from "bson";
 import moment from "moment";
 import shortid from "shortid";
@@ -81,6 +81,10 @@ export default class ExportDb {
     }
 
     public async export(userId: ObjectID, deckName?: string, reset?: boolean) {
+        this.cb({
+            text: `Reading database`
+        });
+
         const db = new Database();
         const [
             deck,
@@ -172,10 +176,16 @@ export default class ExportDb {
             ]).toArray(),
         ]);
 
+        this.cb({
+            text: `Exporting decks`,
+            max: deck.length
+        });
+
         this.conn.transaction(() => {
             for (const d of deck) {
                 this.conn.prepare("INSERT INTO deck (name) VALUES (@name)").run(d);
             }
+
             for (const s of source) {
                 this.conn.prepare(`
                 INSERT INTO source (name, h, created)
@@ -185,6 +195,12 @@ export default class ExportDb {
                 });
             }
         })();
+
+        this.cb({
+            text: `Exporting notes`,
+            current: 0,
+            max: note.length
+        });
 
         this.conn.transaction(() => {
             for (const t of template) {
@@ -203,6 +219,8 @@ export default class ExportDb {
                     sH: normalizeArray((t as any).sH)
                 });
             }
+
+            let i = 0;
             for (const n of note) {
                 this.conn.prepare(`
                 INSERT INTO note (sourceId, key, data)
@@ -215,7 +233,17 @@ export default class ExportDb {
                     sH: normalizeArray((n as any).sH),
                     data: JSON.stringify(n.data)
                 });
+                i++;
+
+                if (i % 1000 === 0) {
+                    this.cb({
+                        text: `Exporting notes`,
+                        current: i,
+                        max: note.length
+                    });
+                }
             }
+
             for (const m of media) {
                 this.conn.prepare(`
                 INSERT INTO media (sourceId, name, data, h)
@@ -232,9 +260,14 @@ export default class ExportDb {
             }
         })();
 
-        console.log(card);
+        this.cb({
+            text: `Exporting cards`,
+            current: 0,
+            max: card.length
+        });
 
         this.conn.transaction(() => {
+            let i = 0;
             for (const c of card) {
                 this.conn.prepare(`
                 INSERT INTO card (deckId, templateId, noteId, front, back, mnemonic, srsLevel,
@@ -256,6 +289,16 @@ export default class ExportDb {
                     modified: !reset && c.modified ? c.modified.toISOString() : null,
                     stat: !reset && c.stat ? JSON.stringify(c.stat) : null
                 });
+
+                i++;
+
+                if (i % 1000 === 0) {
+                    this.cb({
+                        text: `Exporting cards`,
+                        current: i,
+                        max: note.length
+                    });
+                }
             }
         })();
     }
@@ -355,7 +398,7 @@ export default class ExportDb {
         LEFT JOIN source AS s ON s.id = n.sourceId`).all();
         const noteKeyToId: {[key: string]: ObjectID} = {};
         let max = ns.length;
-        i = 0
+        i = 0;
         let subList = ns.splice(0, 1000);
 
         while (subList.length > 0) {
@@ -365,20 +408,41 @@ export default class ExportDb {
                 max
             });
 
-            const {insertedIds} = await db.note.insertMany(subList.map((n) => {
+            const notePromiseList: any[] = [];
+            const keyList: string[] = [];
+
+            for (const n of subList) {
                 const {key, data, sourceH} = n;
+                if (keyList.includes(key)) {
+                    continue;   
+                } else {
+                    keyList.push(key);
+                }
 
-                return {
-                    userId,
-                    key,
-                    data: JSON.parse(data) || [],
-                    sourceId: sourceH ? sourceHToId[sourceH] : undefined
-                };
-            }));
+                const dataProper: Record<string, any> = {};
+                const order: Record<string, number> = {};
+                let seq = 1;
 
-            for (const [index, value] of Object.entries(insertedIds)) {
-                noteKeyToId[subList[index as unknown as number].key] = value;
+                for (const kv of (JSON.parse(data) || [] as IDataSocket[])) {
+                    dataProper[kv.key] = kv.value;
+                    order[kv.key] = seq;
+                    seq++;
+                }
+
+                notePromiseList.push(db.note.findOneAndUpdate({userId, key}, {
+                    $setOnInsert: {
+                        userId,
+                        _meta: {order},
+                        key,
+                        data: dataProper,
+                        sourceId: sourceH ? sourceHToId[sourceH] : undefined
+                    }
+                }, {upsert: true, returnOriginal: false}));
             }
+
+            (await Promise.all(notePromiseList)).map((nResult) => {
+                noteKeyToId[nResult.value.key] = nResult.value._id;
+            });
 
             i += 1000;
             subList = ns.splice(0, 1000);
