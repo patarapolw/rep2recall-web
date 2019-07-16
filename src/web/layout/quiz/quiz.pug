@@ -42,7 +42,7 @@
           v-if="quizIds.length > 0 && currentQuizIndex < quizIds.length - 1",
           variant="secondary", @click="onQuizNextButtonClicked"
         ) &gt;
-  entry-editor#entry-editor-modal(
+  entry-editor#edit-entry-modal(
     title="Edit entry", :entry-id="quizIds[currentQuizIndex]", @ok="onEntrySaved"
   )
   b-modal(ref="downloadModal", hide-footer="", hide-header-close="", title="Downloading", @hide="preventHide")

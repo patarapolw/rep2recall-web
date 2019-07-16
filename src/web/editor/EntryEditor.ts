@@ -201,7 +201,7 @@ export default class EntryEditor extends Vue {
         const {_meta} = this.data;
         const {order} = _meta || {} as any;
 
-        return Object.keys(order).filter((a) => !a.startsWith("_")).sort((a, b) => {
+        return Object.keys(order || {}).sort((a, b) => {
             return order[a] - order[b];
         }).map((a) => {
             return {

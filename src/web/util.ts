@@ -87,8 +87,6 @@ export function escapeRegExp(s: string) {
 }
 
 export function fixData(d: any): any {
-    console.log(d)
-
     if (d.front && ["@md5\n", "@template\n", "@rendered\n"].some((c) => d.front.startsWith(c))) {
         d.front = "@rendered\n" + ankiMustache(d.tFront, d);
     }
