@@ -1,7 +1,7 @@
-const { web } = require("./webpack.common");
+const { getWebpackConfig } = require("./webpack.common");
 
 module.exports = {
-    ...web,
+    ...getWebpackConfig("tsconfig.web.json"),
     mode: "production",
     devtool: "source-map"
 };

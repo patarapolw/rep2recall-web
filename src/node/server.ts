@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import Database, { mongoClient } from "./engine/db";
+import { initDatabase } from "./engine/db";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
 import session from "express-session";
@@ -56,8 +56,6 @@ apiRouter.use("/quiz", quizRouter);
 apiRouter.use("/", indexRouter);
 
 (async () => {
-    await mongoClient.connect();
-    await new Database().build();
-
-    g.server.listen(port, () => console.log(`Server running on http://localhost:${port}`));
+    g.db = await initDatabase();
+    g.server!.listen(port, () => console.log(`Server running on http://localhost:${port}`));
 })().catch(console.error);

@@ -1,30 +1,31 @@
 import passport from "passport";
 import { Strategy } from "passport-local";
-import Database from "../engine/db";
 import expressJwt from "express-jwt";
 import { Request } from "express";
 import jwt from "jsonwebtoken";
-import { ObjectID } from "bson";
+import { g } from "../config";
+import MongoDatabase from "../engine/db/mongo";
 
 passport.use(new Strategy({
     usernameField: "email",
     passwordField: "secret"
 }, (email, secret, done) => {
     (async () => {
-        const db = new Database();
-        const user = await db.user.findOne({email});
-        let userId: ObjectID;
-
-        if (user) {
-            if (user.secret !== secret) {
-                return done(null, false, {message: "secret is invalid"});
+        let userId = "";
+        const db = g.db;
+        if (db && db instanceof MongoDatabase) {
+            const user = await db.user.findOne({email});
+            if (user) {
+                if (user.secret !== secret) {
+                    return done(null, false, {message: "secret is invalid"});
+                }
+                userId = user._id!;
+            } else {
+                return done(null, false, {message: "Please create account via the website first"});
             }
-            userId = user._id!;
-        } else {
-            return done(null, false, {message: "Please create account via the website first"});
         }
 
-        return done(null, userId.toHexString());
+        return done(null, userId);
     })().catch(done);
 }));
 

@@ -1,110 +1,126 @@
 import fs from "fs";
 import AdmZip from "adm-zip";
 import path from "path";
-import sqlite3 from "better-sqlite3";
-import Database, { IDataSocket } from "./db";
-import { ObjectID } from "bson";
+import sqlite from "sqlite";
+import { IDataSocket } from ".";
 import SparkMD5 from "spark-md5";
 import shortid from "shortid";
-import { ankiMustache, IProgress } from "../util";
+import { ankiMustache, IProgress, asyncP } from "../../util";
+import Bluebird from "bluebird";
+import uuid from "uuid/v4";
+import { g } from "../../config";
+import MongoDatabase from "./mongo";
+
+global.Promise = Bluebird as any;
 
 export default class Anki {
-    private db: sqlite3.Database;
-    private mediaNameToId: any = {};
-    private filename: string;
-    private filepath: string;
-    private dir: string;
-    private callback: (res: any) => any;
-
-    constructor(filepath: string, filename: string, callback: (res: IProgress) => void) {
-        this.filename = filename;
-        this.filepath = filepath;
-        this.dir = path.dirname(filepath);
-        this.callback = callback;
+    public static async connect(filepath: string, filename: string, cb: (p: IProgress) => void): Promise<Anki> {
+        const dir = path.dirname(filepath);
 
         const zip = new AdmZip(filepath);
         const zipCount = zip.getEntries().length;
 
-        this.callback({
+        cb({
             text: `Unzipping Apkg. File count: ${zipCount}`,
             max: 0
         });
 
-        zip.extractAllTo(this.dir);
+        zip.extractAllTo(dir);
 
-        this.callback({
+        cb({
             text: "Preparing Anki resources.",
             max: 0
         });
 
-        this.db = new sqlite3(path.join(this.dir, "collection.anki2"));
+        const sql = await sqlite.open(path.join(dir, "collection.anki2"));
 
-        const { decks, models } = this.db.prepare("SELECT decks, models FROM col").get();
+        const { decks, models } = await sql.get("SELECT decks, models FROM col");
 
-        this.db.exec(`
+        await sql.exec(`
         CREATE TABLE decks (
-            id      INTEGER NOT NULL PRIMARY KEY,
+            id      INTEGER PRIMARY KEY,
             name    VARCHAR NOT NULL
         )`);
 
-        const stmt = this.db.prepare("INSERT INTO decks (id, name) VALUES (?, ?)");
-        this.db.transaction(() => {
-            Object.values(JSON.parse(decks as string)).forEach((deck: any) => {
-                stmt.run([deck.id, deck.name]);
-            });
-        })();
+        await Promise.all(Object.values(JSON.parse(decks as string)).map((d: any) => {
+            return sql.run("INSERT INTO decks (id, name) VALUES (?, ?)", d.id, d.name);
+        }));
 
-        this.db.exec(`
+        await sql.exec(`
         CREATE TABLE models (
-            id      INTEGER NOT NULL PRIMARY KEY,
+            id      INTEGER PRIMARY KEY,
             name    VARCHAR NOT NULL,
             flds    VARCHAR NOT NULL,
             css     VARCHAR
         )`);
 
-        this.db.exec(`
+        await sql.exec(`
         CREATE TABLE templates (
-            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            id      VARCHAR PRIMARY KEY,
             mid     INTEGER REFERENCES models(id),
             name    VARCHAR NOT NULL,
             qfmt    VARCHAR NOT NULL,
             afmt    VARCHAR
         )`);
 
-        const modelInsertStmt = this.db.prepare("INSERT INTO models (id, name, flds, css) VALUES (?, ?, ?, ?)");
-        const templateInsertStmt = this.db.prepare("INSERT INTO templates (mid, name, qfmt, afmt) VALUES (?, ?, ?, ?)");
+        await Promise.all(Object.values(JSON.parse(models as string)).map((model: any) => {
+            return asyncP(async () => {
+                await sql.run("INSERT INTO models (id, name, flds, css) VALUES (?, ?, ?, ?)",
+                model.id, model.name, model.flds.map((f: any) => f.name).join("\x1f"), model.css);
 
-        this.db.transaction(() => {
-            Object.values(JSON.parse(models as string)).forEach((model: any) => {
-                modelInsertStmt.run([model.id, model.name, model.flds.map((f: any) => f.name).join("\x1f"), model.css]);
-    
-                model.tmpls.forEach((t: any) => {
-                    templateInsertStmt.run([model.id, t.name, t.qfmt, t.afmt]);
-                });
-            });
-        })();
+                await Promise.all(model.tmpls.map((t: any) => {
+                    return sql.run("INSERT INTO templates (id, mid, name, qfmt, afmt) VALUES (?, ?, ?, ?, ?)",
+                    uuid(), model.id, t.name, t.qfmt, t.afmt);
+                }));
+            })
+        }));
+
+        return new Anki({sql, filename, filepath, dir, cb})
     }
 
-    public async export(userId: ObjectID) {
-        const db = new Database();
+    private sql: sqlite.Database;
+    private mediaNameToId: any = {};
+    private filename: string;
+    private filepath: string;
+    private dir: string;
+    private cb: (res: any) => any;
 
-        this.callback({
+    private constructor(params: any) {
+        this.sql = params.sql;
+        this.filename = params.filename;
+        this.filepath = params.filepath;
+        this.dir = params.dir;
+        this.cb = params.cb;
+    }
+
+    public async export() {
+        const db = g.db!;
+        let userId: string = "";
+        if (db instanceof MongoDatabase) {
+            userId = db.userId!;
+        }
+
+        this.cb({
             text: "Writing to database",
             max: 0
         });
 
-        let sourceId: ObjectID;
+        let sourceId: string;
         let sourceH: string;
         try {
             sourceH = SparkMD5.ArrayBuffer.hash(fs.readFileSync(this.filepath))
-            sourceId = (await db.source.insertOne({
+            const _id = uuid();
+            await db.source.insertOne({
+                _id,
                 userId,
                 name: this.filename,
                 h: sourceH,
                 created: new Date()
-            })).insertedId;
+            });
+
+            sourceId = _id;
         } catch (e) {
-            this.callback({
+            this.cb({
                 error: `Duplicated resource: ${this.filename}`
             });
             return;
@@ -114,7 +130,7 @@ export default class Anki {
         const mediaJson = JSON.parse(fs.readFileSync(path.join(this.dir, "media"), "utf8"));
 
         const total = Object.keys(mediaJson).length;
-        this.callback({
+        this.cb({
             text: "Uploading media",
             max: total
         });
@@ -124,8 +140,9 @@ export default class Anki {
         (await Promise.all(Object.keys(mediaJson).map((k, i) => {
             const data = fs.readFileSync(path.join(this.dir, k));
             const h = SparkMD5.ArrayBuffer.hash(data);
+            const _id = shortid.generate();
             const media = {
-                _id: shortid.generate(),
+                _id,
                 userId,
                 sourceId,
                 name: mediaJson[k],
@@ -135,19 +152,26 @@ export default class Anki {
 
             mediaIToName[i] = media.name;
 
-            return db.media.updateOne({h}, {
-                $setOnInsert: media
-            }, {upsert: true});
-        }))).map((m, i) => {
-            this.mediaNameToId[mediaIToName[i]] = m.upsertedId._id;
-        });
+            return asyncP(async () => {
+                if (db instanceof MongoDatabase) {
+                    this.mediaNameToId[mediaJson[k]] = (await db.media.findOneAndUpdate({h}, {
+                        $setOnInsert: media
+                    }, {upsert: true, returnOriginal: false})).value!._id;
+                } else {
+                    this.mediaNameToId[mediaJson[k]] = (await db.media.getOrCreate({h}, {
+                        $setOnInsert: media
+                    }))._id;
+                }
+            });
+        })));
 
-        const templates = this.db.prepare(`
+        const templates = (await this.sql.all(`
         SELECT t.name AS tname, m.name AS mname, qfmt, afmt, css
         FROM templates AS t
-        INNER JOIN models AS m ON m.id = t.mid`).all().map((t) => {
+        INNER JOIN models AS m ON m.id = t.mid`)).map((t) => {
             const { tname, mname, qfmt, afmt, css } = t;
             return {
+                _id: uuid(),
                 userId,
                 name: tname as string,
                 model: mname as string,
@@ -165,7 +189,7 @@ export default class Anki {
             let from = 0;
 
             while (subList.length > 0) {
-                this.callback({
+                this.cb({
                     text: "Uploading templates",
                     current: from,
                     max: total
@@ -177,20 +201,16 @@ export default class Anki {
             }
         })();
 
-        const count = this.db.prepare(`
+        const count = (await this.sql.get(`
         SELECT
             COUNT(*) AS count
-        FROM cards AS c
-        INNER JOIN decks AS d ON d.id = did
-        INNER JOIN notes AS n ON n.id = nid
-        INNER JOIN models AS m ON m.id = n.mid
-        INNER JOIN templates AS t ON t.mid = n.mid`).get().count;
+        FROM cards AS c`)).count;
 
         const entries = [] as any[];
         const frontSet = new Set();
         let current = 0;
 
-        this.db.prepare(`
+        (await this.sql.all(`
         SELECT
             n.flds AS "values",
             m.flds AS keys,
@@ -204,9 +224,9 @@ export default class Anki {
         INNER JOIN decks AS d ON d.id = did
         INNER JOIN notes AS n ON n.id = nid
         INNER JOIN models AS m ON m.id = n.mid
-        INNER JOIN templates AS t ON t.mid = n.mid`).all().map((c) => {
+        INNER JOIN templates AS t ON t.mid = n.mid`)).map((c) => {
             if (!(current % 1000)) {
-                this.callback({
+                this.cb({
                     text: "Reading notes",
                     current,
                     max: count
@@ -262,23 +282,23 @@ export default class Anki {
             let from = 0;
 
             while (subList.length > 0) {
-                this.callback({
+                this.cb({
                     text: "Uploading notes",
                     current: from,
                     max: total
                 });
 
-                await db.insertMany(userId, subList);
+                await db.insertMany(subList);
                 subList = entries.splice(0, batch);
                 from += batch;
             }
         })();
     }
 
-    public close() {
+    public async close() {
         fs.unlinkSync(this.filepath);
-        this.callback({});
-        this.db.close();
+        this.cb({});
+        await this.sql.close();
     }
 
     private convertLink(s: string) {

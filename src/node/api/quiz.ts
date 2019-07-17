@@ -2,10 +2,10 @@ import { Router } from "express";
 import asyncHandler from "express-async-handler";
 import needUserId from "../middleware/needUserId";
 import auth from "../auth/token";
-import Database from "../engine/db";
 import { SearchParser } from "../engine/search";
 import moment from "moment";
 import { escapeRegExp } from "../util";
+import { g } from "../config";
 
 interface ITreeViewStat {
     new: number;
@@ -68,8 +68,8 @@ router.post("/treeview", asyncHandler(async (req, res) => {
     const parser = new SearchParser();
     const cond = parser.doParse(req.body.q) || {};
 
-    const db = new Database();
-    const {data} = await db.parseCond(res.locals.userId, cond, {
+    const db = g.db!;
+    const {data} = await db.parseCond(cond, {
         fields: ["_id", "srsLevel", "nextReview", "deck"]
     });
 
@@ -138,8 +138,8 @@ router.post("/", asyncHandler(async (req, res) => {
         }
     }
 
-    const db = new Database();
-    const {data} = await db.parseCond(res.locals.userId, {
+    const db = g.db!;
+    const {data} = await db.parseCond({
         cond: {$and: andCond},
         fields: new Set(["deck"])
     }, {
@@ -153,24 +153,24 @@ router.post("/", asyncHandler(async (req, res) => {
 
 router.post("/render", asyncHandler(async (req, res) => {
     const {id} = req.body;
-    const db = new Database();
+    const db = g.db!;
     
-    return res.json(await db.render(res.locals.userId, id));
+    return res.json(await db.render(id));
 }));
 
 router.put("/right", asyncHandler(async (req, res) => {
     const {id, data} = req.body;
-    const db = new Database();
+    const db = g.db!;
     return res.json({
-        id: await db.markRight(res.locals.userId, id, data)
+        id: await db.markRight(id, data)
     });
 }));
 
 router.put("/wrong", asyncHandler(async (req, res) => {
     const {id, data} = req.body;
-    const db = new Database();
+    const db = g.db!;
     return res.json({
-        id: await db.markWrong(res.locals.userId, id, data)
+        id: await db.markWrong(id, data)
     });
 }));
 

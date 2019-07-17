@@ -3,14 +3,15 @@ import asyncHandler from "express-async-handler";
 import fileUpload, { UploadedFile } from "express-fileupload";
 import needUserId from "../middleware/needUserId";
 import auth from "../auth/token";
-import Database from "../engine/db";
 import uuid from "uuid/v4";
 import path from "path";
 import fs from "fs";
-import Anki from "../engine/anki";
+import Anki from "../engine/db/anki";
 import { g } from "../config";
-import ExportDb from "../engine/export";
 import sanitize from "sanitize-filename";
+import MongoDatabase from "../engine/db/mongo";
+import ExportDb from "../engine/compat";
+import SqliteDatabase from "../engine/db/sqlite";
 
 const router = Router();
 router.use(fileUpload());
@@ -23,7 +24,7 @@ router.post("/import", asyncHandler(async (req, res) => {
     const id = uuid();
     const file = req.files!.file as UploadedFile;
 
-    fs.writeFileSync(path.join(g.TMP, id), file.data);
+    fs.writeFileSync(path.join(g.tempFolder, id), file.data);
     idToFilename[id] = file.name;
 
     return res.json({id});
@@ -31,41 +32,45 @@ router.post("/import", asyncHandler(async (req, res) => {
 
 router.get("/export", asyncHandler(async (req, res) => {
     const {deck, id} = req.query;
-    const tempFilename = path.join(g.TMP, id);
+    const tempFilename = path.join(g.tempFolder, id);
     return res.download(tempFilename, `${sanitize(deck)}.db`);
 }));
 
-g.io.on("connection", (socket: any) => {
+g.io!.on("connection", (socket) => {
     async function getUserId() {
-        const db = new Database();
-        const email = process.env.DEFAULT_USER || socket.request.session.passport.user.emails[0].value;
-        const u = await db.user.findOne({email});
-        return u!._id!;
+        const db = g.db!;
+        if (db instanceof MongoDatabase) {
+            const email = process.env.DEFAULT_USER || socket.request.session.passport.user.emails[0].value;
+            const u = await db.user.findOne({email});
+            return u!._id!;
+        }
+
+        return "";
     }
 
     socket.on("import", async (msg: any) => {
         try {
-            const userId = await getUserId();
+            g.db!.userId = await getUserId();
 
             const {id, type} = msg;
             if (type === ".apkg") {
-                const anki = new Anki(path.join(g.TMP, id), idToFilename[id], (p) => {
-                    g.io.send(p);
+                const anki = await Anki.connect(path.join(g.tempFolder, id), idToFilename[id], (p) => {
+                    g.io!.send(p);
                 });
         
-                await anki.export(userId);
-                anki.close();
+                await anki.export();
+                await anki.close();
             } else {
-                const xdb = new ExportDb(path.join(g.TMP, id), (p) => {
-                    g.io.send(p);
+                const xdb = await ExportDb.connect(path.join(g.tempFolder, id));
+                await xdb.import((p) => {
+                    g.io!.send(p);
                 });
-                await xdb.import(userId);
-                xdb.close();
+                await xdb.close();
             }
-            g.io.send({});
+            g.io!.send({});
         } catch (e) {
             console.error(e);
-            g.io.send({
+            g.io!.send({
                 error: e.toString()
             });
         }
@@ -73,22 +78,22 @@ g.io.on("connection", (socket: any) => {
 
     socket.on("export", async (msg: any) => {
         try {
-            const userId = await getUserId();
+            g.db!.userId = await getUserId();
 
             const {deck, reset} = msg;
             const fileId = uuid();
-            const tempFilename = path.join(g.TMP, fileId);
-            const newFile = new ExportDb(tempFilename, (p) => {
-                g.io.send(p);
-            });
+            const tempFilename = path.join(g.tempFolder, fileId);
+            const newFile = await SqliteDatabase.connect(tempFilename);
 
-            await newFile.export(userId, deck, reset);
+            await newFile.export(deck, reset, (p) => {
+                g.io!.send(p);
+            });
             newFile.close();   
             
-            g.io.send({id: fileId, deck});
+            g.io!.send({id: fileId, deck});
         } catch (e) {
             console.error(e);
-            g.io.send({
+            g.io!.send({
                 error: e.toString()
             });
         }

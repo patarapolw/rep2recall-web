@@ -1,4 +1,4 @@
-const { web } = require("./webpack.common");
+const { getWebpackConfig } = require("./webpack.common");
 const path = require("path");
 const dotenv = require("dotenv");
 dotenv.config();
@@ -6,7 +6,7 @@ dotenv.config();
 module.exports = {
     mode: "development",
     devtool: "inline-source-map",
-    ...web,
+    ...getWebpackConfig("tsconfig.web.json"),
     devServer: {
         open: true,
         contentBase: path.resolve(__dirname, "public"),

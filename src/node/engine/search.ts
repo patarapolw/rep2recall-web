@@ -350,3 +350,35 @@ export function dotGetter(d: any, k: string) {
 
     return v;
 }
+
+export function sorter(sortBy?: string, desc?: boolean) {
+    return (a: any, b: any) => {
+        if (!sortBy) {
+            return 0;
+        }
+
+        const m = a[sortBy];
+        const n = b[sortBy];
+
+        if (typeof m === typeof n) {
+            if (typeof m === "string") {
+                return desc ? n.localeCompare(m) : m.localeCompare(n);
+            } else if (typeof m === "number") {
+                return desc ? n - m : m - n;
+            } else {
+                return 0;
+            }
+        } else {
+            const typeDict = {
+                "number": 1,
+                "string": 2,
+                "object": 3
+            } as any;
+
+            const tM = typeDict[typeof m] || -1;
+            const tN = typeDict[typeof n] || -1;
+
+            return desc ? tN - tM : tM - tN;
+        }
+    }
+}

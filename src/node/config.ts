@@ -1,18 +1,43 @@
 import fs from "fs";
 import rimraf from "rimraf";
+import SocketIO from "socket.io";
+import http from "http";
+import SqliteDatabase from "./engine/db/sqlite";
+import MongoDatabase from "./engine/db/mongo";
+import path from "path";
+// @ts-ignore
+import { AppDirs } from "appdirs";
+import dotenv from "dotenv";
+dotenv.config();
 
-export const g: any = {
-    TMP: "tmp"
+interface IGlobalVariable {
+    tempFolder: string;
+    server?: http.Server;
+    io?: SocketIO.Namespace;
+    db?: SqliteDatabase | MongoDatabase;
+}
+
+export const g: IGlobalVariable = {
+    tempFolder: (() => {
+        if (process.env.MONGO_URI) {
+            return "tmp";
+        } else if (process.env.COLLECTION) {
+            return path.join(process.env.COLLECTION, "../tmp");
+        } else {
+            const userDataDir = new AppDirs("rep2recall").userDataDir();
+            return path.join(userDataDir, "tmp");
+        }
+    })()
 };
 
-if (!fs.existsSync(g.TMP)) {
-    fs.mkdirSync(g.TMP);
+if (!fs.existsSync(g.tempFolder)) {
+    fs.mkdirSync(g.tempFolder);
 }
 
 function cleanup() {
     try {
-        g.server.close();
-        rimraf.sync(g.TMP);
+        g.server!.close();
+        rimraf.sync(g.tempFolder);
     } catch (e) {}
 }
 

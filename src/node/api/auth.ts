@@ -3,8 +3,9 @@ import passport from "passport";
 import tokenAuth, { toAuthJson } from "../auth/token";
 import needUserId from "../middleware/needUserId";
 import asyncHandler from "express-async-handler";
-import Database from "../engine/db";
 import { generateSecret } from "../util";
+import { g } from "../config";
+import MongoDatabase from "../engine/db/mongo";
 
 const router = Router();
 
@@ -34,21 +35,24 @@ router.post("/token", tokenAuth.optional, (req, res, next) => {
 });
 
 router.post("/getSecret", needUserId(), asyncHandler(async (req, res) => {
-    const userId = res.locals.userId;
-    const db = new Database();
-    const user = await db.user.findOne({_id: userId});
+    const db = g.db;
+    if (db && db instanceof MongoDatabase) {
+        const user = await db.user.findOne({_id: db.userId});
+        return res.json({secret: user!.secret});
+    }
 
-    return res.json({secret: user!.secret});
+    return res.json({secret: null});
 }));
 
 router.post("/newSecret", needUserId(), asyncHandler(async (req, res) => {
-    const userId = res.locals.userId;
-    const db = new Database();
-    const secret = await generateSecret();
+    const db = g.db;
+    if (db && db instanceof MongoDatabase) {
+        const secret = await generateSecret();
+        await db.user.updateOne({_id: db.userId}, {$set: {secret}});
+        return res.json({secret});
+    }
 
-    await db.user.updateOne({_id: userId}, {$set: {secret}});
-
-    return res.json({secret});
+    return res.json({secret: null});
 }));
 
 router.get("/callback", (req, res, next) => {

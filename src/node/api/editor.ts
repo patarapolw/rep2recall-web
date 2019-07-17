@@ -1,9 +1,9 @@
 import { Router } from "express";
 import needUserId from "../middleware/needUserId";
 import asyncHandler from "express-async-handler";
-import Database from "../engine/db";
 import auth from "../auth/token";
 import { SearchParser } from "../engine/search";
+import { g } from "../config";
 
 const router = Router();
 
@@ -13,8 +13,8 @@ router.use(needUserId());
 router.post("/", asyncHandler(async (req, res) => {
     const {q, offset, limit, sortBy, desc, fields} = req.body;
     const parser = new SearchParser();
-    const db = new Database();
-    return res.json(await db.parseCond(res.locals.userId, parser.doParse(q) || {}, {
+    const db = g.db!;
+    return res.json(await db.parseCond(parser.doParse(q) || {}, {
         offset, limit: limit || 10, sortBy, desc,
         fields: fields || ["deck", "front" , "back", "mnemonic", "tag", "srsLevel", "nextReview", "created", "modified",
         "data", "tFront", "tBack", "css", "js", "source", "template", "_meta"]
@@ -23,8 +23,8 @@ router.post("/", asyncHandler(async (req, res) => {
 
 router.post("/getOne", asyncHandler(async (req, res) => {
     const {id} = req.body;
-    const db = new Database();
-    return res.json((await db.parseCond(res.locals.userId, {cond: {id}}, {
+    const db = g.db!;
+    return res.json((await db.parseCond({cond: {id}}, {
         limit: 1,
         fields: ["deck", "front" , "back", "mnemonic", "tag", "srsLevel", "nextReview", "created", "modified",
         "data", "tFront", "tBack", "css", "js", "source", "template", "_meta"]
@@ -33,23 +33,23 @@ router.post("/getOne", asyncHandler(async (req, res) => {
 
 router.put("/", asyncHandler(async (req, res) => {
     const {id, ids, create, update} = req.body;
-    const db = new Database();
+    const db = g.db!;
     if (Array.isArray(create)) {
-        const ids = await db.insertMany(res.locals.userId, create);
+        const ids = await db.insertMany(create);
         return res.json({ids});
     } else if (create) {
-        const ids = await db.insertMany(res.locals.userId, [create]);
+        const ids = await db.insertMany([create]);
         return res.json({id: ids[0]});
     } else if (ids) {
-        return res.json(await db.updateMany(res.locals.userId, ids, update));
+        return res.json(await db.updateMany(ids, update));
     } else {
-        return res.json(await db.updateMany(res.locals.userId, [id], update));
+        return res.json(await db.updateMany([id], update));
     }
 }));
 
 router.delete("/", asyncHandler(async (req, res) => {
     const {id, ids} = req.body;
-    const db = new Database();
+    const db = g.db!;
     if (ids) {
         return res.json(await db.deleteMany(ids));
     } else {
@@ -59,13 +59,13 @@ router.delete("/", asyncHandler(async (req, res) => {
 
 router.put("/editTags", asyncHandler(async (req, res) => {
     const {ids, tags} = req.body;
-    const db = new Database();
+    const db = g.db!;
     return res.json(await db.addTags(ids, tags));
 }));
 
 router.delete("/editTags", asyncHandler(async (req, res) => {
     const {ids, tags} = req.body;
-    const db = new Database();
+    const db = g.db!;
     return res.json(await db.removeTags(ids, tags));
 }))
 
