@@ -587,16 +587,16 @@ export class MongoDatabase {
         return c;
     }
 
-    public async markRight(cardId?: string, cardData?: {[k: string]: any}): Promise<string | null> {
+    public async markRight(cardId?: string, cardData?: Partial<IDbCard>): Promise<string | null> {
         return await this.createAndUpdateCard(+1, cardId, cardData);
     }
 
-    public async markWrong(cardId?: string, cardData?: {[k: string]: any}): Promise<string | null> {
+    public async markWrong(cardId?: string, cardData?: Partial<IDbCard>): Promise<string | null> {
         return await this.createAndUpdateCard(-1, cardId, cardData);
     }
 
     private async createAndUpdateCard(dSrsLevel: number,
-            cardId?: string, card?: {[k: string]: any}): Promise<string | null> {
+            cardId?: string, card?: Partial<IDbCard>): Promise<string | null> {
         const userId = this.userId!;
         
         if (cardId) {
@@ -607,39 +607,48 @@ export class MongoDatabase {
             return null;
         }
 
-        card.srsLevel = card.srsLevel || 0;
-        card.streak = card.streak || {
+        let srsLevel = card.srsLevel || 0;
+        const streak = card.stat && card.stat.streak ? card.stat.streak : {
             right: 0,
             wrong: 0
         };
 
         if (dSrsLevel > 0) {
-            card.streak.right++;
+            streak.right++;
         } else if (dSrsLevel < 0) {
-            card.streak.wrong--;
+            streak.wrong--;
         }
 
-        card.srsLevel += dSrsLevel;
+        srsLevel += dSrsLevel;
 
-        if (card.srsLevel >= srsMap.length) {
-            card.srsLevel = srsMap.length - 1;
+        if (srsLevel >= srsMap.length) {
+            srsLevel = srsMap.length - 1;
         }
 
-        if (card.srsLevel < 0) {
-            card.srsLevel = 0;
+        if (srsLevel < 0) {
+            srsLevel = 0;
         }
+
+        let nextReview: Date;
 
         if (dSrsLevel > 0) {
-            card.nextReview = getNextReview(card.srsLevel);
+            nextReview = getNextReview(srsLevel);
         } else {
-            card.nextReview = repeatReview();
+            nextReview = repeatReview();
         }
 
+        const stat = card.stat || {} as any;
+        stat.streak = streak;
+
         if (!cardId) {
-            cardId = (await this.insertMany([card]))[0];
+            cardId = (await this.insertMany([{
+                ...card,
+                srsLevel,
+                stat,
+                nextReview
+            }]))[0];
         } else {
-            const {srsLevel, streak, nextReview} = card;
-            await this.updateMany([cardId], {srsLevel, streak, nextReview});
+            await this.updateMany([cardId], {srsLevel, stat, nextReview});
         }
 
         return cardId!;

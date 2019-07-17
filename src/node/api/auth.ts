@@ -75,7 +75,11 @@ router.get("/callback", (req, res, next) => {
 });
 
 router.get("/profile", tokenAuth.optional, (req, res) => {
-    if (req.user) {
+    if (!process.env.MONGO_URI) {
+        return res.json({
+            local: true
+        });
+    } else if (req.user) {
         const {displayName, picture} = req.user;
         return res.json({
             name: displayName,
@@ -85,9 +89,9 @@ router.get("/profile", tokenAuth.optional, (req, res) => {
         return res.json({
             email: process.env.DEFAULT_USER
         });
-    } else {
-        return res.json(null);
     }
+    
+    return res.json(null);
 });
 
 router.get("/logout", (req, res) => {

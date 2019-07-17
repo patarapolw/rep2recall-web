@@ -10,7 +10,7 @@ import Anki from "../engine/db/anki";
 import { g } from "../config";
 import sanitize from "sanitize-filename";
 import MongoDatabase from "../engine/db/mongo";
-import ExportDb from "../engine/compat";
+import ExportDb from "../engine/db/compat";
 import SqliteDatabase from "../engine/db/sqlite";
 
 const router = Router();

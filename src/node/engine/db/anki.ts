@@ -10,14 +10,16 @@ import Bluebird from "bluebird";
 import uuid from "uuid/v4";
 import { g } from "../../config";
 import MongoDatabase from "./mongo";
+import rimraf from "rimraf";
 
 global.Promise = Bluebird as any;
 
 export default class Anki {
     public static async connect(filepath: string, filename: string, cb: (p: IProgress) => void): Promise<Anki> {
-        const dir = path.dirname(filepath);
+        fs.renameSync(filepath, `${filepath}.apkg`)
+        fs.mkdirSync(filepath);
 
-        const zip = new AdmZip(filepath);
+        const zip = new AdmZip(`${filepath}.apkg`);
         const zipCount = zip.getEntries().length;
 
         cb({
@@ -25,14 +27,14 @@ export default class Anki {
             max: 0
         });
 
-        zip.extractAllTo(dir);
+        zip.extractAllTo(filepath);
 
         cb({
             text: "Preparing Anki resources.",
             max: 0
         });
 
-        const sql = await sqlite.open(path.join(dir, "collection.anki2"));
+        const sql = await sqlite.open(path.join(filepath, "collection.anki2"));
 
         const { decks, models } = await sql.get("SELECT decks, models FROM col");
 
@@ -75,21 +77,19 @@ export default class Anki {
             })
         }));
 
-        return new Anki({sql, filename, filepath, dir, cb})
+        return new Anki({sql, filename, filepath, cb})
     }
 
     private sql: sqlite.Database;
     private mediaNameToId: any = {};
     private filename: string;
     private filepath: string;
-    private dir: string;
     private cb: (res: any) => any;
 
     private constructor(params: any) {
         this.sql = params.sql;
         this.filename = params.filename;
         this.filepath = params.filepath;
-        this.dir = params.dir;
         this.cb = params.cb;
     }
 
@@ -108,7 +108,7 @@ export default class Anki {
         let sourceId: string;
         let sourceH: string;
         try {
-            sourceH = SparkMD5.ArrayBuffer.hash(fs.readFileSync(this.filepath))
+            sourceH = SparkMD5.ArrayBuffer.hash(fs.readFileSync(`${this.filepath}.apkg`))
             const _id = uuid();
             await db.source.insertOne({
                 _id,
@@ -120,6 +120,7 @@ export default class Anki {
 
             sourceId = _id;
         } catch (e) {
+            console.error(e);
             this.cb({
                 error: `Duplicated resource: ${this.filename}`
             });
@@ -127,7 +128,7 @@ export default class Anki {
         }
 
         this.mediaNameToId = {} as any;
-        const mediaJson = JSON.parse(fs.readFileSync(path.join(this.dir, "media"), "utf8"));
+        const mediaJson = JSON.parse(fs.readFileSync(path.join(this.filepath, "media"), "utf8"));
 
         const total = Object.keys(mediaJson).length;
         this.cb({
@@ -138,7 +139,7 @@ export default class Anki {
         const mediaIToName: any = {};
 
         (await Promise.all(Object.keys(mediaJson).map((k, i) => {
-            const data = fs.readFileSync(path.join(this.dir, k));
+            const data = fs.readFileSync(path.join(this.filepath, k));
             const h = SparkMD5.ArrayBuffer.hash(data);
             const _id = shortid.generate();
             const media = {
@@ -296,9 +297,10 @@ export default class Anki {
     }
 
     public async close() {
-        fs.unlinkSync(this.filepath);
-        this.cb({});
         await this.sql.close();
+        rimraf.sync(this.filepath);
+        fs.unlinkSync(`${this.filepath}.apkg`);
+        this.cb({});
     }
 
     private convertLink(s: string) {

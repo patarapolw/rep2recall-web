@@ -153,7 +153,7 @@ export default class ExportDb {
                 uuid(), name);
 
                 deckNameToId[name] = (await db.sql.get(`
-                SELECT _id FROM deck WHERE name = ?`, name));
+                SELECT _id FROM deck WHERE name = ?`, name))._id;
             }
 
             i++;
@@ -369,6 +369,9 @@ export default class ExportDb {
                         INSERT INTO card (
                             _id, front, back, mnemonic, srsLevel, nextReview, created, modified, stat,
                             deckId, noteId, templateId
+                        ) VALUES (
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            ?, ?, ?
                         )`,
                         _id, front, back, mnemonic, srsLevel, nextReview, created, modified, stat,
                         deckNameToId[deck],

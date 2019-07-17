@@ -20,27 +20,31 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 7000;
-const MongoStore = connectMongo(session);
 g.server = new http.Server(app);
-const sessionMiddleware = session({
-    secret: process.env.SECRET_KEY!,
-    cookie: { maxAge: 24 * 3600 * 1000 },
-    resave: false,
-    saveUninitialized: true,
-    store: new MongoStore({
-        uri: process.env.MONGO_URI!,
-        collection: "session"
-    })
-});
+g.io = SocketIO(g.server);
 
-app.use(sessionMiddleware);
+if (process.env.MONGO_URI) {
+    const MongoStore = connectMongo(session);
+    const sessionMiddleware = session({
+        secret: process.env.SECRET_KEY!,
+        cookie: { maxAge: 24 * 3600 * 1000 },
+        resave: false,
+        saveUninitialized: true,
+        store: new MongoStore({
+            uri: process.env.MONGO_URI!,
+            collection: "session"
+        })
+    });
 
-app.use(passport.initialize());
-app.use(passport.session());
+    app.use(sessionMiddleware);
 
-g.io = SocketIO(g.server).use((socket, next) => {
-    sessionMiddleware(socket.request, {} as any, next);
-});
+    app.use(passport.initialize());
+    app.use(passport.session());
+
+    g.io.use((socket, next) => {
+        sessionMiddleware(socket.request, {} as any, next);
+    });
+}
 
 app.use(express.static("public"));
 

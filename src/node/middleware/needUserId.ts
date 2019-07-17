@@ -12,6 +12,10 @@ export default function() {
         }
 
         (async () => {
+            if (!process.env.MONGO_URI) {
+                return next();
+            }
+
             if ((req as any).payload) {
                 const {id} = (req as any).payload;
                 if (id) {

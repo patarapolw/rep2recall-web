@@ -13,7 +13,7 @@ dotenv.config();
 interface IGlobalVariable {
     tempFolder: string;
     server?: http.Server;
-    io?: SocketIO.Namespace;
+    io?: SocketIO.Server;
     db?: SqliteDatabase | MongoDatabase;
 }
 

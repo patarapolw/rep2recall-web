@@ -17,17 +17,17 @@ router.post("/", asyncHandler(async (req, res) => {
     return res.json(await db.parseCond(parser.doParse(q) || {}, {
         offset, limit: limit || 10, sortBy, desc,
         fields: fields || ["deck", "front" , "back", "mnemonic", "tag", "srsLevel", "nextReview", "created", "modified",
-        "data", "tFront", "tBack", "css", "js", "source", "template", "_meta"]
+        "data", "tFront", "tBack", "css", "js", "source", "template", "_meta", "_id"]
     }));
 }));
 
 router.post("/getOne", asyncHandler(async (req, res) => {
-    const {id} = req.body;
+    const {_id} = req.body;
     const db = g.db!;
-    return res.json((await db.parseCond({cond: {id}}, {
+    return res.json((await db.parseCond({cond: {_id}}, {
         limit: 1,
         fields: ["deck", "front" , "back", "mnemonic", "tag", "srsLevel", "nextReview", "created", "modified",
-        "data", "tFront", "tBack", "css", "js", "source", "template", "_meta"]
+        "data", "tFront", "tBack", "css", "js", "source", "template", "_meta", "_id"]
     })).data[0]);
 }));
 

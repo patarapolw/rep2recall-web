@@ -42,10 +42,10 @@
         th
     tbody
       tr.fixed-header-offset
-      tr(v-for="d in data", :key="d.id", @click="onTableRowClicked(d.id)", :class="{selected: checkedIds.has(d.id)}")
+      tr(v-for="d in data", :key="d._id", @click="onTableRowClicked(d._id)", :class="{selected: checkedIds.has(d._id)}")
         td(style="width: 50px")
           div
-            input(type="checkbox", @click.native="onCheckboxClicked($event, d.id)", :checked="checkedIds.has(d.id)")
+            input(type="checkbox", @click.native="onCheckboxClicked($event, d._id)", :checked="checkedIds.has(d._id)")
         td(v-for="a in getOrderedDict(d)", :key="a[0]")
           .wrapper
             iframe.wrapped(v-if="a[2].type === 'html'", :srcdoc="getHtml(d, a[0])", frameborder="0")

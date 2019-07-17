@@ -49,7 +49,7 @@ export class SqliteDatabase {
 
         CREATE TABLE IF NOT EXISTS note (
             _id         VARCHAR PRIMARY KEY,
-            _meta       VARCHAR NOT NULL /* JSON */
+            _meta       VARCHAR NOT NULL, /* JSON */
             sourceId    VARCHAR REFERENCES source(_id),
             key         VARCHAR,
             data        VARCHAR NOT NULL /* JSON */
@@ -165,12 +165,12 @@ export class SqliteDatabase {
                     return;
                 }
 
-                const data: Record<string, any> = {};
+                const dataProper: Record<string, any> = {};
                 const order: Record<string, number> = {};
                 let seq = 1;
 
                 for (const kv of (e.data as IDataSocket[])) {
-                    data[kv.key] = kv.value;
+                    dataProper[kv.key] = kv.value;
                     order[kv.key] = seq;
                     seq++;
                 }
@@ -180,7 +180,7 @@ export class SqliteDatabase {
                 await this.sql.run(`
                 INSERT INTO note (_id, _meta, key, data, sourceId)
                 VALUES (?, ?, ?, ?, ?)`,
-                _id, JSON.stringify({order}), e.key, JSON.stringify(e.data), sourceMap[e.sourceH]);
+                _id, JSON.stringify({order}), e.key, JSON.stringify(dataProper), sourceMap[e.sourceH]);
 
                 nMap[e.key] = _id;
             });
@@ -194,6 +194,14 @@ export class SqliteDatabase {
             }
         }
 
+        const tags: string[] = entries.map((e) => e.tag).filter((t) => t).reduce((a, b) => [...a, ...b]);
+        await Promise.all(tags.filter((t, i) => tags.indexOf(t) === i).map((t) => {
+            return this.sql.run(`
+            INSERT INTO tag (_id, name)
+            VALUES (?, ?)
+            ON CONFLICT DO NOTHING`,
+            uuid(), t);
+        }));
         const _ids: string[] = [];
 
         await Promise.all(entries.map((e) => {
@@ -204,6 +212,16 @@ export class SqliteDatabase {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 _id, e.front, e.back, e.mnemonic, e.srsLevel, toString(e.nextReview),
                 dMap[e.deck], nMap[e.key], tMap[`${e.template}\x1f${e.model}`], now);
+
+                if (e.tag) {
+                    await Promise.all(e.tag.map((t: string) => {
+                        return this.sql.run(`
+                        INSERT INTO cardTag (cardId, tagId)
+                        VALUES (?,
+                            (SELECT _id FROM tag WHERE name = ?)
+                        )`, _id, t);
+                    }));
+                }
 
                 _ids.push(_id);
             });
@@ -233,7 +251,7 @@ export class SqliteDatabase {
         const joinSegments: string[] = [];
         let isNoteJoined = false;
 
-        if (["data", "key"].some((k) => allFields.has(k))) {
+        if (["data", "key", "_meta"].some((k) => allFields.has(k))) {
             joinSegments.push("JOIN note AS n ON n._id = noteId");
             isNoteJoined = true;
         }
@@ -257,33 +275,57 @@ export class SqliteDatabase {
         const selectSegments: string[] = [];
 
         for (let k of allFields) {
-            if (["data", "key"].includes(k)) {
-                selectSegments.push(`n.${k}`);
+            if (["data", "key", "_meta"].includes(k)) {
+                selectSegments.push(`n.${k} AS ${k}`);
             } else if (k === "deck") {
-                selectSegments.push("d.name");
+                selectSegments.push(`d.name AS ${k}`);
             } else if (["sCreated", "sH", "source"].includes(k)) {
                 if (k === "source") {
-                    selectSegments.push("s.name")
+                    selectSegments.push(`s.name AS ${k}`)
                 } else {
-                    k = k.substr(1).toLocaleLowerCase();
-                    selectSegments.push(`s.${k}`);
+                    selectSegments.push(`s.${k.substr(1).toLocaleLowerCase()} AS ${k}`);
                 }
             } else if (["tFront", "tBack", "template", "model", "css", "js"].includes(k)) {
                 if (k === "template") {
-                    selectSegments.push("t.name")
+                    selectSegments.push(`t.name AS ${k}`)
                 } else if (["model", "css", "js"].includes(k)) {
-                    selectSegments.push(`t.${k}`);
+                    selectSegments.push(`t.${k} AS ${k}`);
                 } else {
-                    k = k.substr(1).toLocaleLowerCase();
-                    selectSegments.push(`t.${k}`);
+                    selectSegments.push(`t.${k.substr(1).toLocaleLowerCase()} AS ${k}`);
                 }
+            } else if (k !== "tag") {
+                selectSegments.push(`c.${k} AS ${k}`)
             }
         }
 
         let q = await this.sql.all(`
         SELECT ${selectSegments.join(",")}
-        FROM card
-        ${joinSegments.join("\n")}`);
+        FROM card AS c
+        ${joinSegments.join("\n")}`).map((el) => {
+            for (const [k, v] of Object.entries(el)) {
+                if (["_meta", "data", "stat"].includes(k)) {
+                    el[k] = fromString(v as string);
+                }
+            }
+
+            return el;
+        });
+
+        if (allFields.has("tag")) {
+            q = await Promise.all(q.map((el) => {
+                return asyncP(async () => {
+                    const ts = await this.sql.all(`
+                    SELECT t.name AS tName
+                    FROM tag AS t
+                    INNER JOIN cardTag AS ct ON ct.tagId = t._id
+                    INNER JOIN card AS c ON c._id = ct.cardId
+                    WHERE c._id = ?`, el._id);
+
+                    el.tag = ts.map((t) => t.tName);
+                    return el;
+                });
+            }));
+        }
 
         q = q.filter(mongoFilter(cond.cond || {}));
 
@@ -552,57 +594,73 @@ export class SqliteDatabase {
         return c;
     }
 
-    public async markRight(cardId?: string, cardData?: {[k: string]: any}): Promise<string | null> {
+    public async markRight(cardId?: string, cardData?: Partial<IDbCard>): Promise<string | null> {
         return await this.createAndUpdateCard(+1, cardId, cardData);
     }
 
-    public async markWrong(cardId?: string, cardData?: {[k: string]: any}): Promise<string | null> {
+    public async markWrong(cardId?: string, cardData?: Partial<IDbCard>): Promise<string | null> {
         return await this.createAndUpdateCard(-1, cardId, cardData);
     }
 
     private async createAndUpdateCard(dSrsLevel: number,
-            cardId?: string, card?: {[k: string]: any}): Promise<string | null> {
+            cardId?: string, card?: Partial<IDbCard>): Promise<string | null> {
         if (cardId) {
-            card = await this.sql.get(`SELECT templateId, front FROM card WHERE _id = ?`, cardId);
+            card = await this.sql.get(`
+            SELECT srsLevel, stat AS _stat
+            FROM card WHERE _id = ?`, cardId);
         }
 
         if (!card) {
             return null;
         }
 
-        card.srsLevel = card.srsLevel || 0;
-        card.streak = card.streak || {
+        if ((card as any)._stat) {
+            card.stat = JSON.parse((card as any)._stat);
+        }
+
+        let {srsLevel, stat} = card;
+
+        srsLevel = srsLevel || 0;
+        const streak = (stat || {} as any).streak || {
             right: 0,
             wrong: 0
         };
 
         if (dSrsLevel > 0) {
-            card.streak.right++;
+            streak.right++;
         } else if (dSrsLevel < 0) {
-            card.streak.wrong--;
+            streak.wrong--;
         }
 
-        card.srsLevel += dSrsLevel;
+        srsLevel += dSrsLevel;
 
-        if (card.srsLevel >= srsMap.length) {
-            card.srsLevel = srsMap.length - 1;
+        if (srsLevel >= srsMap.length) {
+            srsLevel = srsMap.length - 1;
         }
 
-        if (card.srsLevel < 0) {
-            card.srsLevel = 0;
+        if (srsLevel < 0) {
+            srsLevel = 0;
         }
+
+        let nextReview: Date;
 
         if (dSrsLevel > 0) {
-            card.nextReview = getNextReview(card.srsLevel);
+            nextReview = getNextReview(srsLevel);
         } else {
-            card.nextReview = repeatReview();
+            nextReview = repeatReview();
         }
 
+        (stat || {} as any).streak = streak;
+
         if (!cardId) {
-            cardId = (await this.insertMany([card]))[0];
+            cardId = (await this.insertMany([{
+                ...card,
+                srsLevel,
+                stat,
+                nextReview
+            }]))[0];
         } else {
-            const {srsLevel, streak, nextReview} = card;
-            await this.updateMany([cardId], {srsLevel, streak, nextReview});
+            await this.updateMany([cardId], {srsLevel, stat, nextReview});
         }
 
         return cardId!;
@@ -795,13 +853,28 @@ export class SqliteDatabase {
                 WHERE d.name = ? OR d.name LIKE ?`,
                 deckName, `${escapeSqlLike(deckName)}/%`),
                 this.sql.all(`SELECT * FROM media`),
-                this.sql.all(`SELECT
-                    c._id AS _id, deckId, templateId, noteId, front, back, mnemonic, srsLevel,
-                    nextReview, created, modified, stat
-                FROM card AS c
-                JOIN deck AS d ON d._id = c.deckId
-                WHERE d.name = ? OR d.name LIKE ?`,
-                deckName, `${escapeSqlLike(deckName)}/%`)
+                asyncP(async () => {
+                    const cs = await this.sql.all(`SELECT
+                        c._id AS _id, deckId, templateId, noteId, front, back, mnemonic, srsLevel,
+                        nextReview, created, modified, stat
+                    FROM card AS c
+                    JOIN deck AS d ON d._id = c.deckId
+                    WHERE d.name = ? OR d.name LIKE ?`,
+                    deckName, `${escapeSqlLike(deckName)}/%`);
+
+                    await Promise.all(cs.map((c) => {
+                        return asyncP(async () => {
+                            const ts = await this.sql.all(`
+                            SELECT t.name AS tName
+                            FROM tag AS t
+                            INNER JOIN cardTag AS ct ON ct.tagId = t._id
+                            INNER JOIN card AS c ON c._id = ct.cardId
+                            WHERE c._id = ?`, c._id);
+
+                            c.tag = ts.map((t) => t.tName);
+                        })
+                    }))
+                })
             ]);
         }
 
@@ -885,14 +958,26 @@ export class SqliteDatabase {
                     delete c.nextReview;
                     delete c.stat;
                 }
-
-                return this.sql.run(`
-                INSERT INTO card (_id, deckId, templateId, noteId, front, back, mnemonic, srsLevel,
-                    nextReview, created, modified, stat)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?)`,
-                c._id, c.deckId, c.templateId, c.noteId, c.front, c.back, c.mnemonic, c.srsLevel,
-                    toString(c.nextReview), toString(c.created), toString(c.modified), toString(c.stat))
+                
+                return asyncP(async () => {
+                    await this.sql.run(`
+                    INSERT INTO card (_id, deckId, templateId, noteId, front, back, mnemonic, srsLevel,
+                        nextReview, created, modified, stat)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?)`,
+                    c._id, c.deckId, c.templateId, c.noteId, c.front, c.back, c.mnemonic, c.srsLevel,
+                        toString(c.nextReview), toString(c.created), toString(c.modified), toString(c.stat));
+                    
+                    if (c.tag) {
+                        await Promise.all(c.tag.map((t: string) => {
+                            return this.sql.run(`
+                            INSERT INTO cardTag (cardId, tagId)
+                            VALUES (?,
+                                (SELECT _id FROM tag WHERE name = ?)
+                            )`, c._id, t);
+                        }));
+                    }   
+                });
             }));
 
             subCard = card.splice(0, 1000);

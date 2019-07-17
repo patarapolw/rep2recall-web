@@ -107,3 +107,4 @@ tmp/
 
 /public/js
 /secret/
+/user.db

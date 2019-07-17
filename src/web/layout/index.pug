@@ -19,10 +19,10 @@
       .nav-icon(v-else-if="profile.picture", v-b-tooltip.hover="", title="Click here to logout")
         img(:src="profile.picture")
       i.fas.fa-user-lock.nav-icon(
-        v-else="", v-b-tooltip.hover="", :title="profile.email", style="margin-left: -0.1em"
+        v-else-if="profile.email", v-b-tooltip.hover="", :title="profile.email", style="margin-left: -0.1em"
       )
 
-  .nav-left(v-if="isMobile", style="position: fixed; bottom: 0")
+  .nav-left(v-if="isMobile", style="position: fixed; bottom: 1em")
     .arrow-up(v-if="!isExpanded", @click="isExpanded = true")
     .arrow-down(v-if="isExpanded", @click="isExpanded = false")
 
@@ -31,7 +31,7 @@
       .nav-icon(v-else-if="profile.picture", v-b-tooltip.hover="", title="Click here to logout")
         img(:src="profile.picture")
       i.fas.fa-user-lock.nav-icon(
-        v-else="", v-b-tooltip.hover="", :title="profile.email", style="margin-left: -0.1em"
+        v-else-if="profile.email", v-b-tooltip.hover="", :title="profile.email", style="margin-left: -0.1em"
       )
 
   .separate-vertical

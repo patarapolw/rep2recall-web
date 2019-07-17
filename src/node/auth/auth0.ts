@@ -3,7 +3,7 @@ import passport from "passport";
 import dotenv from "dotenv";
 dotenv.config();
 
-if (!process.env.DEFAULT_USER) {
+if (process.env.AUTH0_DOMAIN && !process.env.DEFAULT_USER) {
     const auth0Strategy = new Strategy(
         {
             domain: process.env.AUTH0_DOMAIN!,

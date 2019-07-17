@@ -192,7 +192,7 @@ export default class EditorUi extends Vue {
             checkboxMain.indeterminate = false;
             if (checkboxMain.checked) {
                 this.data.forEach((d) => {
-                    this.checkedIds.add(d.id);
+                    this.checkedIds.add(d._id);
                 });
 
                 if (this.count > this.limit) {
@@ -231,7 +231,7 @@ export default class EditorUi extends Vue {
     }
 
     private onTableRowClicked(id: number) {
-        const availableIds = new Set(this.data.map((row) => row.id));
+        const availableIds = new Set(this.data.map((row) => row._id));
 
         this.checkedIds.forEach((c) => {
             if (!availableIds.has(c)) {
