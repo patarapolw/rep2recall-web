@@ -9,7 +9,18 @@ Repeat Until Recall, by a simplified spaced-repetition interval.
 - Complete editing of any fields
 - Exposed API (at <http://rep2recall.herokuapp.com/api>) -- See [/docs/api.md](/docs/api.md)
 
-## Running in development mode
+## Running in development mode with SQLite
+
+- Clone the project from GitHub
+- Create `.env` at project root as below. You will need either to install MongoDB or have an account at MongoDB Atlas.
+
+```
+COLLECTION=<user.db OR file/path.db>
+```
+
+- `yarn install`, `yarn run build` and `yarn start`.
+
+## Running in development mode with MongoDB
 
 - Clone the project from GitHub
 - Create `.env` at project root as below. You will need either to install MongoDB or have an account at MongoDB Atlas.
@@ -21,6 +32,6 @@ MONGO_URI=<your-mongo-uri>
 
 - `yarn install`, `yarn run build` and `yarn start`.
 
-## Download a standalone executable, without having to install MongoDB
+## Download a standalone executable, without having to install MongoDB or even Yarn
 
-See <https://github.com/patarapolw/rep2recall-sqlite>
+See <https://github.com/patarapolw/rep2recall.js/releases>
