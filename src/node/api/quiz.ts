@@ -141,7 +141,7 @@ router.post("/", asyncHandler(async (req, res) => {
     const db = g.db!;
     const {data} = await db.parseCond({
         cond: {$and: andCond},
-        fields: new Set(["deck"])
+        fields: new Set(["deck", "nextReview"])
     }, {
         fields: ["_id"]
     });

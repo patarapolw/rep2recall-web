@@ -325,7 +325,7 @@ export class SqliteDatabase {
                     return el;
                 });
             }));
-        }
+        };
 
         q = q.filter(mongoFilter(cond.cond || {}));
 
@@ -577,7 +577,7 @@ export class SqliteDatabase {
             cond: {_id: cardId}
         }, {
             limit: 1,
-            fields: ["front", "back", "mnemonic", "tFront", "tBack", "data", "css", "js"]
+            fields: ["_id", "front", "back", "mnemonic", "tFront", "tBack", "data", "css", "js"]
         });
 
         const c = r.data[0];

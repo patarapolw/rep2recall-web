@@ -252,7 +252,7 @@ export function mongoFilter(cond: any) {
                 if (cond[k] && cond[k].constructor === {}.constructor
                     && Object.keys(cond[k]).some((k0) => k0[0] === "$")) {
                     return (() => {
-                        for (const op in Object.keys(cond[k])) {
+                        for (const op of Object.keys(cond[k])) {
                             try {
                                 if (op === "$regex") {
                                     if (Array.isArray(itemK)) {

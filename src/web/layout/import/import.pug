@@ -8,7 +8,7 @@
       button.btn.btn-outline-success.input-group-text(
         :disabled="!importFile", @click="onImportButtonClicked"
       ) Upload
-  b-modal(ref="uploadModal", hide-footer="", hide-header-close="Uploading", title="Uploading", @hide="preventHide")
+  b-modal(ref="uploadModal", hide-footer="", hide-header-close="", title="Uploading", @hide="preventHide")
     div {{progress.text}}
     .progress.mt-3(:style="{display: progress.max ? 'block': 'none'}")
       .progress-bar.progress-bar-striped(
