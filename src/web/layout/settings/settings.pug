@@ -1,6 +1,22 @@
 .container.mt-3
-  h3.mt-3.danger Reset user database
-  .row
-    .col-8.danger Please ensure you want to reset the database
-    .col-4
-      button.btn.btn-danger.form-control(@click="onResetDatabaseClicked") Reset database
+  .w-100.mt-3(v-if="apiSecret")
+    h3 API secret
+    .row
+      .col-8(style="justify-content: center; margin-top: 0.3em;")
+        code {{apiSecret}}
+      .col-4
+        button.btn.btn-danger.form-control(@click="onGenerateNewApiSecretClicked") Generate new secret
+    .row
+      .col-12
+        div.ml-3
+          small Need help on how to use API secret?
+          br
+          small See 
+            a(href="https://github.com/patarapolw/rep2recall-web/blob/master/docs/api.md", target="_blank")
+              code api.md
+  .w-100.mt-3.danger
+    h3 Reset user database
+    .row
+      .col-8 Please ensure you want to reset the database
+      .col-4
+        button.btn.btn-danger.form-control(@click="onResetDatabaseClicked") Reset database

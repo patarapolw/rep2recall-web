@@ -6,9 +6,30 @@ import template from "../layout/settings/settings.pug";
 
 @Component({template})
 export default class SettingsUi extends Vue {
+    private apiSecret = "";
+
+    public async created() {
+        const r = await fetchJSON("/api/auth/getSecret");
+        this.apiSecret = r.secret;
+    }
+
+    private async onGenerateNewApiSecretClicked() {
+        const c = await swal({
+            text: "Are you sure you want to reset the API secret?",
+            icon: "warning",
+            buttons: [true, true],
+            dangerMode: true
+        });
+
+        if (c) {
+            const r = await fetchJSON("/api/auth/newSecret");
+            this.apiSecret = r.secret;
+        }
+    }
+
     private async onResetDatabaseClicked() {
         const r = await swal({
-            text: "Please ensure you want to reset the database. The app will restart afterwards.",
+            text: "Are you sure you want to reset the database?",
             icon: "warning",
             buttons: [true, true],
             dangerMode: true
