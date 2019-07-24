@@ -15,13 +15,14 @@ import "./auth/token";
 import http from "http";
 import SocketIO from "socket.io";
 import { g } from "./config";
+import path from "path";
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 7000;
 g.server = new http.Server(app);
-g.io = SocketIO(g.server);
+g.io = SocketIO(g.server, {serveClient: false});
 
 if (process.env.MONGO_URI) {
     const MongoStore = connectMongo(session);
@@ -46,7 +47,7 @@ if (process.env.MONGO_URI) {
     });
 }
 
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "../../public")));
 
 const apiRouter = Router();
 app.use("/api", apiRouter);

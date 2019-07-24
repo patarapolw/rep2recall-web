@@ -16,7 +16,9 @@ function createWindow() {
     });
     mainWindow.maximize();
 
-    mainWindow.loadFile(path.join(__dirname, "index.html"));
+    console.log(path.resolve(__dirname, "../../public/index.html"))
+
+    mainWindow.loadFile(path.resolve(__dirname, "../../public/index.html"));
 
     const openExternalLinksInOSBrowser = (event: any, url: string) => {
         if (url.match(/.*localhost.*/gi) === null && (url.startsWith("http:") || url.startsWith("https:"))) {

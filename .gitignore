@@ -105,6 +105,7 @@ dmypy.json
 .pyre/
 tmp/
 
-/public/js
+/public/js/
 /secret/
 /user.db
+/release/

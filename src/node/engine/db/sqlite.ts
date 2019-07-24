@@ -294,7 +294,7 @@ export class SqliteDatabase {
                     selectSegments.push(`t.${k.substr(1).toLocaleLowerCase()} AS ${k}`);
                 }
             } else if (k !== "tag") {
-                selectSegments.push(`c.${k} AS ${k}`)
+                selectSegments.push(`   `)
             }
         }
 
@@ -424,7 +424,7 @@ export class SqliteDatabase {
                 SET ${k} = ?
                 WHERE _id = ?`,
                 v ? moment(v as string).toISOString() : null, cardId));
-            } else if (["front", "back", "mnemonic", "srsLevel", "tag"].includes(k)) {
+            } else if (["front", "back", "mnemonic", "srsLevel"].includes(k)) {
                 updatePromises.push(this.sql.run(`
                 UPDATE card
                 SET ${k} = ?
@@ -720,7 +720,7 @@ export class SqliteDatabase {
     private async getData(cardId: string): Promise<Record<string, any> | null> {
         const c = await this.sql.get(`SELECT noteId, front FROM card WHERE _id = ?`, cardId);
         if (c && c.noteId) {
-            const n = await this.sql.get(`SELECT data FROM card WHERE _id = ?`, c.noteId);;
+            const n = await this.sql.get(`SELECT data FROM note WHERE _id = ?`, c.noteId);;
             if (n) {
                 return JSON.parse(n.data);
             }

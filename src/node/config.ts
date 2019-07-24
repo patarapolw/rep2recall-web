@@ -25,6 +25,10 @@ export const g: IGlobalVariable = {
             return path.join(process.env.COLLECTION, "../tmp");
         } else {
             const userDataDir = new AppDirs("rep2recall").userDataDir();
+            if (!fs.existsSync(userDataDir)) {
+                fs.mkdirSync(userDataDir);
+            }
+
             return path.join(userDataDir, "tmp");
         }
     })()
